@@ -5,8 +5,9 @@ spatio_kernel_dec = 3
 model_type = "gSTA"
 hid_S = 64
 hid_T = 256
-N_T = 8
-N_S = 4
+N_T = 3
+N_S = 6
+fp16=False
 # training
 lr = 1e-3
 drop_path = 0

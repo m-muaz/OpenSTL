@@ -7,6 +7,7 @@ import torch
 
 # import torchaudio
 from torch.utils import data
+from custom.utils import normalize_data, sequence_input
 
 # from data.dataset_utils import StaticRandomCrop
 
@@ -28,6 +29,7 @@ class MB(object):
         self.crop_size = [args.image_height, args.image_width]
         self.start_index = 0
         self.stride = args.stride
+        self.dtype = args.dtype
 
         assert os.path.exists(data_root)
         assert os.path.exists(gs_root)
@@ -180,9 +182,16 @@ class MB(object):
         # return (pre_seq, post_seq) pairs from batch generator
         # return input_images, input_images_270p, input_gs, input_audios
 
-        input_images_reshaped = input_images.transpose(0, 3, 1, 2)
+        # input_images_tensor = input_images.transpose(0, 3, 1, 2)
+        input_images_tensor = torch.tensor(input_images, dtype=torch.float)
+        input_images_tensor.transpose_(2,3)
+        input_images_tensor.transpose_(1,2)
+        # input_images_reshaped = normalize_data(self.dtype, input_images_tensor) 
+        # input_images_tensor = torch.tensor(input_images_reshaped).float()
+        # input_images_reshaped = sequence_input(input_images_tensor, self.dtype)
 
+        # return input_images_tensor
         return (
-            input_images_reshaped[: self.input_length, :, :, :],
-            input_images_reshaped[self.input_length :, :, :, :]
+            input_images_tensor[ :self.input_length, :, :, :],
+            input_images_tensor[self.input_length: , :, :, :]
         )

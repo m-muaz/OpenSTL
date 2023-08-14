@@ -9,7 +9,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from openstl.utils import load_config, show_video_line, create_parser
+from openstl.utils import load_config, show_video_line, create_parser, setup_multi_processes
 from openstl.api import BaseExperiment
 from mb_multifile_debug import MB
 from custom.utils import load_dtparser, update_config, sequence_input, normalize_data
@@ -44,6 +44,7 @@ opt = args.__dict__
 print(">" * 70)
 config = update_config(opt, load_config("./custom/configs/yt_data.py"))
 config = Config(config)
+config.dtype = torch.cuda.FloatTensor
 
 # Load training and testing data
 train_data = MB(
@@ -66,7 +67,6 @@ train_sampler = None
 test_sampler = None
 config.data_threads = 2
 
-dtype = torch.cuda.FloatTensor
 
 # Define the dataloaders
 train_loader = DataLoader(
@@ -98,8 +98,9 @@ val_loader = DataLoader(
 
 # print(type(train_loader))
 
-# # Generate a batch of data for analysis
-# for X, Y in train_loader:
+# Generate a batch of data for analysis
+# for data in train_loader:
+#     print(data.shape)
 #     condition_frames = X
 #     future_frames = Y
 #     print("previous_frames: ", condition_frames.shape)
@@ -131,8 +132,15 @@ model_config = update_config(model_config, load_config("./custom/configs/SimVP_g
 # update the remaining model config with the custom training config
 model_config = update_config(model_config, custom_training_config)
 
+
+# set multi-process settings
+# setup_multi_processes(model_config)
+
 # create the experiment object
 exp = BaseExperiment(model_args, dataloaders=(train_loader, val_loader, test_loader))
+
+# clear cuda cache
+torch.cuda.empty_cache()
 
 # run the experiment
 print(">" * 35, " Training ", "<" * 35)
