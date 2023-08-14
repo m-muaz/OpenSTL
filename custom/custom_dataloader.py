@@ -99,52 +99,52 @@ val_loader = DataLoader(
 # print(type(train_loader))
 
 # Generate a batch of data for analysis
-# for data in train_loader:
-#     print(data.shape)
-#     condition_frames = X
-#     future_frames = Y
-#     print("previous_frames: ", condition_frames.shape)
-#     show_video_line(
-#         condition_frames[0],
-#         ncols=config.n_past,
-#         vmax=0.6,
-#         cbar=False,
-#         out_path="condition_frames.png",
-#         format="png",
-#     )
-#     print("future_frames: ", future_frames.shape)
-#     # yield batch, batch_small, gs_batch, ad_batch
+for X, Y in train_loader:
+    # print(data.shape)
+    condition_frames = X
+    future_frames = Y
+    print("previous_frames: ", condition_frames.shape)
+    # show_video_line(
+    #     condition_frames[0],
+    #     ncols=config.n_past,
+    #     vmax=0.6,
+    #     cbar=False,
+    #     out_path="condition_frames.png",
+    #     format="png",
+    # )
+    print("future_frames: ", future_frames.shape)
+    # yield batch, batch_small, gs_batch, ad_batch
 
-model_args = create_parser().parse_args()
-model_config = model_args.__dict__
+# model_args = create_parser().parse_args()
+# model_config = model_args.__dict__
 
-custom_training_config = {
-    'batch_size': config.batch_size,
-    'val_batch_size': config.val_batch_size,
-    'in_shape': (config.n_past, 3, config.image_width, config.image_height),
-    'pre_seq_length': config.n_past,
-    'aft_seq_length': config.n_future,
-    'total_length': config.n_past + config.n_future,
-}
+# custom_training_config = {
+#     'batch_size': config.batch_size,
+#     'val_batch_size': config.val_batch_size,
+#     'in_shape': (config.n_past, 3, config.image_width, config.image_height),
+#     'pre_seq_length': config.n_past,
+#     'aft_seq_length': config.n_future,
+#     'total_length': config.n_past + config.n_future,
+# }
 
-# update the model config with the custom training config
-model_config = update_config(model_config, load_config("./custom/configs/SimVP_gSTA.py"))
-# update the remaining model config with the custom training config
-model_config = update_config(model_config, custom_training_config)
+# # update the model config with the custom training config
+# model_config = update_config(model_config, load_config("./custom/configs/SimVP_gSTA.py"))
+# # update the remaining model config with the custom training config
+# model_config = update_config(model_config, custom_training_config)
 
 
-# set multi-process settings
-# setup_multi_processes(model_config)
+# # set multi-process settings
+# # setup_multi_processes(model_config)
 
-# create the experiment object
-exp = BaseExperiment(model_args, dataloaders=(train_loader, val_loader, test_loader))
+# # create the experiment object
+# exp = BaseExperiment(model_args, dataloaders=(train_loader, val_loader, test_loader))
 
-# clear cuda cache
-torch.cuda.empty_cache()
+# # clear cuda cache
+# torch.cuda.empty_cache()
 
-# run the experiment
-print(">" * 35, " Training ", "<" * 35)
-exp.train()
+# # run the experiment
+# print(">" * 35, " Training ", "<" * 35)
+# exp.train()
 
-print(">" * 35, " Testing ", "<" * 35)
-exp.test()
+# print(">" * 35, " Testing ", "<" * 35)
+# exp.test()
