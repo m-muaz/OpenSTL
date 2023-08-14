@@ -4,6 +4,7 @@ import numpy as np
 import cv2
 
 import torch
+
 # import torchaudio
 from torch.utils import data
 
@@ -182,6 +183,6 @@ class MB(object):
         input_images_reshaped = input_images.transpose(0, 3, 1, 2)
 
         return (
-            input_images_reshaped[ :self.input_length, :, :, :],
-            input_images_reshaped[self.input_length: , :, :, :],
+            input_images_reshaped[: self.input_length, :, :, :],
+            input_images_reshaped[self.input_length :, :, :, :]
         )

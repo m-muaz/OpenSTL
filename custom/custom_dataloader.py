@@ -13,6 +13,7 @@ from openstl.utils import load_config, show_video_line, create_parser
 from openstl.api import BaseExperiment
 from mb_multifile_debug import MB
 from custom.utils import load_dtparser, update_config, sequence_input, normalize_data
+from openstl.utils import update_config as upd
 
 
 class Config:
@@ -117,18 +118,25 @@ model_args = create_parser().parse_args()
 model_config = model_args.__dict__
 
 custom_training_config = {
-    "batch_size": config.batch_size,
-    "val_batch_size": config.val_batch_size,
-    "in_shape": (config.n_past, 3, config.image_width, config.image_height),
-    "pre_seq_length": config.n_past,
-    "aft_seq_length": config.n_future,
-    "total_length": config.n_past + config.n_future,
+    'batch_size': config.batch_size,
+    'val_batch_size': config.val_batch_size,
+    'in_shape': (config.n_past, 3, config.image_width, config.image_height),
+    'pre_seq_length': config.n_past,
+    'aft_seq_length': config.n_future,
+    'total_length': config.n_past + config.n_future,
 }
 
 # update the model config with the custom training config
-model_config.update(load_config("./custom/configs/SimVP_gSTA.py"))
+model_config = update_config(model_config, load_config("./custom/configs/SimVP_gSTA.py"))
 # update the remaining model config with the custom training config
-model_config.update(custom_training_config)
+model_config = update_config(model_config, custom_training_config)
 
 # create the experiment object
 exp = BaseExperiment(model_args, dataloaders=(train_loader, val_loader, test_loader))
+
+# run the experiment
+print(">" * 35, " Training ", "<" * 35)
+exp.train()
+
+print(">" * 35, " Testing ", "<" * 35)
+exp.test()
