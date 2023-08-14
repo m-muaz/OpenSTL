@@ -131,10 +131,8 @@ class MB(object):
         # ]
 
         images = [
-            cv2.resize(cv2.imread(imfile), (1920, 1080)) for imfile in input_video_files
+            cv2.resize(cv2.imread(imfile), (self.crop_size[1], self.crop_size[0])) for imfile in input_video_files
         ]
-        images_270p = [cv2.resize(imfile, (480, 270)) for imfile in images]
-        # gs = [np.expand_dims(cv2.imread(imfile, 0), axis=2) for imfile in input_gs_files]
         gs = [cv2.resize(cv2.imread(imfile), (128, 64)) for imfile in input_video_files]
         input_shape = images[0].shape[:2]
 
@@ -173,14 +171,11 @@ class MB(object):
             ]
 
         input_images = np.stack([im.astype(float) / 255.0 for im in images], axis=0)
-        input_images_270p = np.stack(
-            [im.astype(float) / 255.0 for im in images_270p], axis=0
-        )
         input_gs = np.stack([im.astype(float) / 255.0 for im in gs], axis=0)
         # input_audios = np.stack([im.astype(float) for im in input_ads], axis=0)
 
         # return (pre_seq, post_seq) pairs from batch generator
-        # return input_images, input_images_270p, input_gs, input_audios
+        # return input_images, input_gs, input_audios
 
         # input_images_tensor = input_images.transpose(0, 3, 1, 2)
         input_images_tensor = torch.tensor(input_images, dtype=torch.float)
