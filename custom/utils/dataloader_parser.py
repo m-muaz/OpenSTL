@@ -17,19 +17,6 @@ def load_dtparser():
         help="root directory for validation data",
     )
     parser.add_argument(
-        "--train_gs",
-        metavar="TRAINING_GAMASTATES_FILE",
-        help="root directory for training gamestates",
-    )
-    parser.add_argument(
-        "--val_gs",
-        metavar="VALIDATION_GAMASTATES_FILE",
-        help="root directory for validation gamestates",
-    )
-    # parser.add_argument('--train_audio_root', metavar="TRAINING_FILE", help='root directory for training data')
-    # parser.add_argument('--val_audio_root', metavar="VALIDATION_FILE", help='root directory for validation data')
-
-    parser.add_argument(
         "--image_height",
         type=int,
         default=1080,
@@ -62,6 +49,12 @@ def load_dtparser():
         default=8,
         type=int,
         help="The factor for which padded validation image sizes should be evenly divisible. (default: 16)",
+    )
+    parser.add_argument(
+        "--video_frame_rate", default=30, type=int, help="video frame rate"
+    )
+    parser.add_argument(
+        "--audio_sample_rate", default=16000, type=int, help="audio sampling rate"
     )
     parser.add_argument(
         "--n_past", type=int, default=5, help="number of frames to condition on"

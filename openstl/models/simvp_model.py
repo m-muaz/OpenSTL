@@ -1,4 +1,5 @@
 import torch
+import torchaudio
 from torch import nn
 
 from openstl.modules import (ConvSC, ConvNeXtSubBlock, ConvMixerSubBlock, GASubBlock, gInception_ST,
@@ -22,26 +23,37 @@ class SimVP_Model(nn.Module):
         H, W = int(H / 2**(N_S/2)), int(W / 2**(N_S/2))  # downsample 1 / 2**(N_S/2)
         act_inplace = False
         self.enc = Encoder(C, hid_S, N_S, spatio_kernel_enc, act_inplace=act_inplace)
-        self.dec = Decoder(hid_S, C, N_S, spatio_kernel_dec, act_inplace=act_inplace)
+        # The input channel includes 2 audio channels
+        self.dec = Decoder(hid_S+2, hid_S, C, N_S, spatio_kernel_dec, act_inplace=act_inplace)
+        self.ad_feat_extractor = torchaudio.pipelines.WAV2VEC2_BASE.get_model()
+        self.fc = nn.Linear(768 * 9, 64 * 64)
 
         model_type = 'gsta' if model_type is None else model_type.lower()
         if model_type == 'incepu':
-            self.hid = MidIncepNet(T*hid_S, hid_T, N_T)
+            self.hid = MidIncepNet(T*(hid_S+2), hid_T, N_T)
         else:
-            self.hid = MidMetaNet(T*hid_S, hid_T, N_T,
+            self.hid = MidMetaNet(T*(hid_S+2), hid_T, N_T,
                 input_resolution=(H, W), model_type=model_type,
                 mlp_ratio=mlp_ratio, drop=drop, drop_path=drop_path)
 
-    def forward(self, x_raw, **kwargs):
+    def forward(self, x_raw, ad_raw, **kwargs):
         B, T, C, H, W = x_raw.shape
         x = x_raw.view(B*T, C, H, W)
+        
+        B, T, AC, AF = ad_raw.shape
 
         embed, skip = self.enc(x)
         _, C_, H_, W_ = embed.shape
 
         z = embed.view(B, T, C_, H_, W_)
-        hid = self.hid(z)
-        hid = hid.reshape(B*T, C_, H_, W_)
+        
+        ad_inp = ad_raw.view(B * T * AC, AF)
+        ad_feats, _ = self.ad_feat_extractor.extract_features(ad_inp)
+        # Only use the last audio feature
+        ad_feat = self.fc(ad_feats[-1].view(B * T * AC, -1)).view(B, T, AC, H_, W_)
+        
+        hid = self.hid(torch.cat((z, ad_feat), 2))
+        hid = hid.reshape(B*T, C_ + AC, H_, W_)
 
         Y = self.dec(hid, skip)
         Y = Y.reshape(B, T, C, H, W)
@@ -79,9 +91,10 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     """3D Decoder for SimVP"""
 
-    def __init__(self, C_hid, C_out, N_S, spatio_kernel, act_inplace=True):
+    def __init__(self, C_in, C_hid, C_out, N_S, spatio_kernel, act_inplace=True):
         samplings = sampling_generator(N_S, reverse=True)
         super(Decoder, self).__init__()
+        self.feat_conv =  nn.Conv2d(C_in, C_hid, 1)
         self.dec = nn.Sequential(
             *[ConvSC(C_hid, C_hid, spatio_kernel, upsampling=s,
                      act_inplace=act_inplace) for s in samplings[:-1]],
@@ -91,6 +104,7 @@ class Decoder(nn.Module):
         self.readout = nn.Conv2d(C_hid, C_out, 1)
 
     def forward(self, hid, enc1=None):
+        hid = self.feat_conv(hid)
         for i in range(0, len(self.dec)-1):
             hid = self.dec[i](hid)
         Y = self.dec[-1](hid + enc1)

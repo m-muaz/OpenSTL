@@ -246,8 +246,10 @@ class BaseExperiment(object):
     def display_method_info(self):
         """Plot the basic infomation of supported methods"""
         T, C, H, W = self.args.in_shape
+        num_ad_frames = int(self.train_loader.dataset.audio_sample_rate * (1 / self.train_loader.dataset.video_frame_rate))
         if self.args.method in ['simvp', 'tau']:
             input_dummy = torch.ones(1, self.args.pre_seq_length, C, H, W).to(self.device)
+            input_ad_dummy = torch.ones(1, self.args.pre_seq_length, 2, num_ad_frames * (self.train_loader.dataset.ad_prev_len + self.args.pre_seq_length + 1)).to(self.device)
         elif self.args.method == 'crevnet':
             # crevnet must use the batchsize rather than 1
             input_dummy = torch.ones(self.args.batch_size, 20, C, H, W).to(self.device)
@@ -277,10 +279,10 @@ class BaseExperiment(object):
 
         dash_line = '-' * 80 + '\n'
         info = self.method.model.__repr__()
-        flops = FlopCountAnalysis(self.method.model, input_dummy)
+        flops = FlopCountAnalysis(self.method.model, (input_dummy, input_ad_dummy))
         flops = flop_count_table(flops)
         if self.args.fps:
-            fps = measure_throughput(self.method.model, input_dummy)
+            fps = measure_throughput(self.method.model, (input_dummy, input_ad_dummy))
             fps = 'Throughputs of {}: {:.3f}\n'.format(self.args.method, fps)
         else:
             fps = ''

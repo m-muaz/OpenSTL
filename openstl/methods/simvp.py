@@ -26,12 +26,12 @@ class SimVP(Base_method):
     def _build_model(self, args):
         return SimVP_Model(**args).to(self.device)
 
-    def _predict(self, batch_x, batch_y=None, **kwargs):
+    def _predict(self, batch_x, batch_ad, batch_y=None, **kwargs):
         """Forward the model"""
         if self.args.aft_seq_length == self.args.pre_seq_length:
-            pred_y = self.model(batch_x)
+            pred_y = self.model(batch_x, batch_ad)
         elif self.args.aft_seq_length < self.args.pre_seq_length:
-            pred_y = self.model(batch_x)
+            pred_y = self.model(batch_x, batch_ad)
             pred_y = pred_y[:, :self.args.aft_seq_length]
         elif self.args.aft_seq_length > self.args.pre_seq_length:
             pred_y = []
@@ -60,16 +60,16 @@ class SimVP(Base_method):
         train_pbar = tqdm(train_loader) if self.rank == 0 else train_loader
 
         end = time.time()
-        for batch_x, batch_y in train_pbar:
+        for batch_x, batch_y, batch_ad in train_pbar:
             data_time_m.update(time.time() - end)
             self.model_optim.zero_grad()
 
             if not self.args.use_prefetcher:
-                batch_x, batch_y = batch_x.to(self.device), batch_y.to(self.device)
+                batch_x, batch_y, batch_ad = batch_x.to(self.device), batch_y.to(self.device), batch_ad.to(self.device)
             runner.call_hook('before_train_iter')
 
             with self.amp_autocast():
-                pred_y = self._predict(batch_x)
+                pred_y = self._predict(batch_x, batch_ad)
                 loss = self.criterion(pred_y, batch_y)
 
             if not self.dist:

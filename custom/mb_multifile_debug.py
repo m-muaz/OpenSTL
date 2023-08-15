@@ -4,20 +4,32 @@ import numpy as np
 import cv2
 
 import torch
-
-# import torchaudio
+import torchaudio
 from torch.utils import data
 from custom.utils import normalize_data, sequence_input
-
-# from data.dataset_utils import StaticRandomCrop
-
-FRAME_RATE = 30
-AUDIO_SAMPLE_RATE = 16000
+from torch.utils.data import Sampler
 
 
+class CustomStartSampler(Sampler):
+    def __init__(self, dataset, start_idx, shuffle=False):
+        super(CustomStartSampler, self).__init__(dataset)
+        self.dataset = dataset
+        self.start_idx = start_idx
+        self.shuffle = shuffle
+        self.indices = list(range(self.start_idx, len(self.dataset)))
+
+    def __iter__(self):
+        if self.shuffle:
+            return iter(torch.randperm(len(self.indices)).tolist())
+        return iter(self.indices)
+
+    def __len__(self):
+        return len(self.indices)
+    
+    
 class MB(object):
     def __init__(
-        self, args, data_root, gs_root, audio_root, train=False, transform=None
+        self, args, data_root, train=False, transform=None
     ):
         self.train = train
         self.transform = transform
@@ -30,21 +42,21 @@ class MB(object):
         self.start_index = 0
         self.stride = args.stride
         self.dtype = args.dtype
+        self.video_frame_rate = args.video_frame_rate
+        self.audio_sample_rate = args.audio_sample_rate
         self.mean = None
         self.std = None
 
         assert os.path.exists(data_root)
-        assert os.path.exists(gs_root)
-        assert os.path.exists(audio_root)
         if self.train:
             self.start_index = 0
 
         # collect, colors, motion vectors, and depth
         self.ref = self.collectFileList(data_root)
-        self.gs_ref = self.collectFileList(gs_root)
-        # self.ad_ref = self.collectAudioFileList(audio_root)
+        self.ad_ref = self.collectAudioFileList(data_root)
+        self.ad_prev_len = 3
 
-        counts = [(len(el) - self.seq_len + 1) for el in self.ref]
+        counts = [(len(el) - self.seq_len) for el in self.ref]
         self.total = np.sum(counts)
         self.cum_sum = list(np.cumsum([0] + [el for el in counts]))
 
@@ -93,9 +105,9 @@ class MB(object):
                     ad_waveform, ad_sample_rate = torchaudio.load(
                         os.path.join(fdir, el)
                     )
-                    if ad_sample_rate != AUDIO_SAMPLE_RATE:
+                    if ad_sample_rate != self.audio_sample_rate:
                         ad_waveform = torchaudio.functional.resample(
-                            ad_waveform, ad_sample_rate, AUDIO_SAMPLE_RATE
+                            ad_waveform, ad_sample_rate, self.audio_sample_rate
                         ).numpy()
                     each_data.append(ad_waveform)
             datasets.append(each_data)
@@ -114,36 +126,27 @@ class MB(object):
         index = index - self.cum_sum[np.maximum(0, dataset_index - 1)]
 
         image_list = self.ref[dataset_index - 1]
-        gs_list = self.gs_ref[dataset_index - 1]
-        # ad_data = self.ad_ref[dataset_index - 1][0]
-        num_audio_frames = int(AUDIO_SAMPLE_RATE * (1 / FRAME_RATE))
+        ad_data = self.ad_ref[dataset_index - 1][0]
+        num_audio_frames = int(self.audio_sample_rate * (1 / self.video_frame_rate))
 
         input_video_files = [
             image_list[index + offset] for offset in range(self.seq_len)
         ]
-        input_gs_files = [gs_list[index + offset] for offset in range(self.seq_len)]
-        # input_ads = [
-        #     ad_data[
-        #         :,
-        #         (index + offset)
-        #         * num_audio_frames : (index + offset + 1)
-        #         * num_audio_frames,
-        #     ]
-        #     for offset in range(self.seq_len)
-        # ]
+        # audio data has the previous frame sequence and the current audio frame
+        input_ads = [
+            ad_data[
+                :,
+                (index + offset - self.ad_prev_len)
+                * num_audio_frames : (index + self.input_length + 1 + offset)
+                * num_audio_frames,
+            ]
+            for offset in range(self.input_length)
+        ]
 
         images = [
             cv2.resize(cv2.imread(imfile), (self.crop_size[1], self.crop_size[0])) for imfile in input_video_files
         ]
-        gs = [cv2.resize(cv2.imread(imfile), (128, 64)) for imfile in input_video_files]
         input_shape = images[0].shape[:2]
-
-        # if self.train:
-        #     cropper = StaticRandomCrop(self.crop_size, input_shape)
-        #     images = map(cropper, images)
-        #     images = list(images)
-        #     gs = map(cropper, gs)
-        #     gs = list(gs)
 
         # Pad images along height and width to fit them evenly into models.
         input_shape = images[0].shape[:2]
@@ -173,22 +176,18 @@ class MB(object):
             ]
 
         input_images = np.stack([im.astype(float) / 255.0 for im in images], axis=0)
-        input_gs = np.stack([im.astype(float) / 255.0 for im in gs], axis=0)
-        # input_audios = np.stack([im.astype(float) for im in input_ads], axis=0)
-
-        # return (pre_seq, post_seq) pairs from batch generator
-        # return input_images, input_gs, input_audios
+        input_audios = np.stack([im.astype(float) for im in input_ads], axis=0)  # (seq_num, 2, num_audio_frames)
 
         # input_images_tensor = input_images.transpose(0, 3, 1, 2)
         input_images_tensor = torch.tensor(input_images, dtype=torch.float)
         input_images_tensor.transpose_(2,3)
         input_images_tensor.transpose_(1,2)
-        # input_images_reshaped = normalize_data(self.dtype, input_images_tensor) 
-        # input_images_tensor = torch.tensor(input_images_reshaped).float()
-        # input_images_reshaped = sequence_input(input_images_tensor, self.dtype)
+        
+        input_audios_tensor = torch.tensor(input_audios, dtype=torch.float)
 
         # return input_images_tensor
         return (
             input_images_tensor[ :self.input_length, :, :, :],
-            input_images_tensor[self.input_length: , :, :, :]
+            input_images_tensor[self.input_length: , :, :, :],
+            input_audios_tensor
         )

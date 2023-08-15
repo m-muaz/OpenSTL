@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 
 from openstl.utils import load_config, show_video_line, create_parser, setup_multi_processes
 from openstl.api import BaseExperiment
-from mb_multifile_debug import MB
+from mb_multifile_debug import CustomStartSampler, MB
 from custom.utils import load_dtparser, update_config, sequence_input, normalize_data
 from openstl.utils import update_config as upd
 
@@ -51,20 +51,16 @@ train_data = MB(
     config,
     train=True,
     data_root=config.train_root,
-    gs_root=config.train_gs,
-    audio_root=config.train_root,
 )
 test_data = MB(
     config,
     train=False,
     data_root=config.val_root,
-    gs_root=config.val_gs,
-    audio_root=config.val_root,
 )
 
 # Creating dataloader for non-distributed training
-train_sampler = None
-test_sampler = None
+train_sampler = CustomStartSampler(train_data, train_data.ad_prev_len, shuffle=True)
+test_sampler = CustomStartSampler(test_data, test_data.ad_prev_len, shuffle=True)
 config.data_threads = 2
 
 
@@ -74,7 +70,6 @@ train_loader = DataLoader(
     num_workers=config.data_threads,
     batch_size=config.batch_size,
     sampler=train_sampler,
-    shuffle=(train_sampler is None),
     pin_memory=True,
 )
 
@@ -83,7 +78,6 @@ test_loader = DataLoader(
     num_workers=config.data_threads,
     batch_size=config.val_batch_size,
     sampler=test_sampler,
-    shuffle=(test_sampler is None),
     pin_memory=True,
 )
 
@@ -92,7 +86,6 @@ val_loader = DataLoader(
     num_workers=config.data_threads,
     batch_size=config.val_batch_size,
     sampler=test_sampler,
-    shuffle=(test_sampler is None),
     pin_memory=True,
 )
 
