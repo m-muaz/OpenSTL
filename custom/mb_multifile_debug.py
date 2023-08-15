@@ -30,6 +30,8 @@ class MB(object):
         self.start_index = 0
         self.stride = args.stride
         self.dtype = args.dtype
+        self.mean = None
+        self.std = None
 
         assert os.path.exists(data_root)
         assert os.path.exists(gs_root)
