@@ -183,6 +183,8 @@ class MB(object):
         input_images_tensor = torch.tensor(input_images, dtype=torch.float)
         input_images_tensor.transpose_(2,3)
         input_images_tensor.transpose_(1,2)
+        self.mean = torch.mean(input_images_tensor, dim=1)
+        self.std = torch.std(input_images_tensor, dim=1)
         # input_images_reshaped = normalize_data(self.dtype, input_images_tensor) 
         # input_images_tensor = torch.tensor(input_images_reshaped).float()
         # input_images_reshaped = sequence_input(input_images_tensor, self.dtype)

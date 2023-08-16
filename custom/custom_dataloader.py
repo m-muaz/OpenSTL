@@ -4,6 +4,7 @@ warnings.filterwarnings("ignore")
 
 import os
 import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import argparse
 import numpy as np
 import torch
@@ -146,5 +147,5 @@ torch.cuda.empty_cache()
 print(">" * 35, " Training ", "<" * 35)
 exp.train()
 
-print(">" * 35, " Testing ", "<" * 35)
-exp.test()
+# print(">" * 35, " Testing ", "<" * 35)
+# exp.test()
