@@ -132,6 +132,9 @@ def metric(pred, true, mean=None, std=None, metrics=['mae', 'mse'],
     if mean is not None and std is not None:
         pred = pred * std + mean
         true = true * std + mean
+    else:
+        pred = pred * 255.0
+        true = true * 255.0
     eval_res = {}
     eval_log = ""
     allowed_metrics = ['mae', 'mse', 'rmse', 'ssim', 'psnr', 'snr', 'lpips']

@@ -103,6 +103,7 @@ try:
 
     # set test parameter to be True
     model_config['test'] = True
+    model_config['metrics'] = ['mae', 'mse', 'ssim', 'psnr']
 
     # set multi-process settings
     # setup_multi_processes(model_config)
