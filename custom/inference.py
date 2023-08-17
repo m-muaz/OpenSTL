@@ -114,15 +114,16 @@ try:
     print(">" * 35, " Testing ", "<" * 35)
     mse = exp.test()
 
-    rank, _ = get_dist_info()
-    try:
-        import nni
-        has_nni = True
-    except ImportError:
-        has_nni = False
+    print(">" * 35, " Testing finished ", "<" * 35)
+    # rank, _ = get_dist_info()
+    # try:
+    #     import nni
+    #     has_nni = True
+    # except ImportError:
+    #     has_nni = False
 
-    if rank == 0 and has_nni:
-            nni.report_final_result(mse)
+    # if rank == 0 and has_nni:
+    #         nni.report_final_result(mse)
 except Exception as e:
      print(">" * 35, " Testing failed with error", "<" * 35)
      print(e)

@@ -161,11 +161,14 @@ class Base_method(object):
 
         # loop
         for idx, (batch_x, batch_y) in enumerate(data_loader):
+            # print(f"Index {idx}")
             with torch.no_grad():
                 batch_x, batch_y = batch_x.to(self.device), batch_y.to(self.device)
                 pred_y = self._predict(batch_x, batch_y)
+                # print(f"pred_y shape: {pred_y.shape}")
 
             if gather_data:  # return raw datas
+                # print("gather data at index {}".format(idx))
                 results.append(dict(zip(['inputs', 'preds', 'trues'],
                                         [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
             else:  # return metrics
@@ -179,9 +182,12 @@ class Base_method(object):
 
             prog_bar.update()
             if self.args.empty_cache:
+                # print("empty cache at index {}".format(idx))
                 torch.cuda.empty_cache()
+            # print("-"*50)
 
-        # post gather tensors
+        # print("post gather tensors")
+        # post gather tensors"
         results_all = {}
         for k in results[0].keys():
             results_all[k] = np.concatenate([batch[k] for batch in results], axis=0)
@@ -225,9 +231,9 @@ class Base_method(object):
         """
         self.model.eval()
         if self.dist and self.world_size > 1:
-            results = self._dist_forward_collect(test_loader, gather_data=True)
+            results = self._dist_forward_collect(test_loader, gather_data=False)
         else:
-            results = self._nondist_forward_collect(test_loader, gather_data=True)
+            results = self._nondist_forward_collect(test_loader, gather_data=False)
 
         return results
 
