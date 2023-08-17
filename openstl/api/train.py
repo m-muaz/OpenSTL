@@ -359,6 +359,10 @@ class BaseExperiment(object):
         #                             metrics=metric_list, channel_names=channel_names, spatial_norm=spatial_norm)
         # results['metrics'] = np.array([eval_res['mae'], eval_res['mse']])
 
+        # check if results is a tuple
+        metric_results = results[0] if isinstance(results, tuple) else results
+        results = results[1] if isinstance(results, tuple) else results
+
         if self._rank == 0:
             print_log(eval_log)
             folder_path = osp.join(self.path, 'saved')
@@ -367,4 +371,4 @@ class BaseExperiment(object):
             for np_data in results.keys():
                 np.save(osp.join(folder_path, np_data + '.npy'), results[np_data])
 
-        return results['mse'].mean()
+        return metric_results['mse'].mean()

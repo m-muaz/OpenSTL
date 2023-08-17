@@ -157,9 +157,17 @@ class Base_method(object):
         """
         # preparation
         results = []
+        resulting_images = []
         prog_bar = ProgressBar(len(data_loader))
         # zyhe: is this variable useful?
         length = len(data_loader.dataset) if length is None else length
+
+        # random idx to start saving images
+        rand_idx = np.random.randint(0, len(data_loader.dataset) - 1)
+        num_images = 100
+        # make sure rand_idx is num_images far from the end of the dataset
+        if rand_idx > len(data_loader.dataset) - num_images:
+            rand_idx = rand_idx - num_images
 
         # loop
         for idx, (batch_x, batch_y) in enumerate(data_loader):
@@ -174,6 +182,9 @@ class Base_method(object):
                 results.append(dict(zip(['inputs', 'preds', 'trues'],
                                         [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
             else:  # return metrics
+                if idx >= rand_idx and idx < rand_idx + num_images:
+                    resulting_images.append(dict(zip(['inputs', 'preds', 'trues'],
+                                                     [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
                 eval_res, _ = metric(pred_y.cpu().numpy(), batch_y.cpu().numpy(),
                                      data_loader.dataset.mean, data_loader.dataset.std,
                                      metrics=self.metric_list if metric_list is None else metric_list, 
@@ -189,12 +200,19 @@ class Base_method(object):
                 torch.cuda.empty_cache()
             # print("-"*50)
 
-        # print("post gather tensors")
+        # Saving the sampled images
+
+
         # post gather tensors"
         results_all = {}
         for k in results[0].keys():
             results_all[k] = np.concatenate([batch[k] for batch in results], axis=0)
-        return results_all
+        
+        resulting_images_all = {}
+        for key in resulting_images[0].keys():
+            resulting_images_all[key] = np.concatenate([batch[key] for batch in resulting_images], axis=0)
+            
+        return (results_all, resulting_images_all)
 
     def vali_one_epoch(self, runner, vali_loader, **kwargs):
         """Evaluate the model with val_loader.
@@ -238,13 +256,15 @@ class Base_method(object):
         else:
             results = self._nondist_forward_collect(test_loader, kwargs['metric_list'], gather_data=False)
 
+        metric_results = results[0] if len(results) > 1 else results
+
         eval_log = ""
-        for k, v in results.items():
+        for k, v in metric_results.items():
             v = v.mean()
             if k != "loss":
                 eval_str = f"{k}:{v.mean()}" if len(eval_log) == 0 else f", {k}:{v.mean()}"
                 eval_log += eval_str
-                
+        
         return results, eval_log
 
     def current_lr(self) -> Union[List[float], Dict[str, List[float]]]:
