@@ -91,7 +91,7 @@ class Base_method(object):
         """
         raise NotImplementedError
 
-    def _dist_forward_collect(self, data_loader, length=None, gather_data=False):
+    def _dist_forward_collect(self, data_loader, metric_list=None, length=None, gather_data=False):
         """Forward and collect predictios in a distributed manner.
 
         Args:
@@ -122,7 +122,8 @@ class Base_method(object):
             else:  # return metrics
                 eval_res, _ = metric(pred_y.cpu().numpy(), batch_y.cpu().numpy(),
                                      data_loader.dataset.mean, data_loader.dataset.std,
-                                     metrics=self.metric_list, spatial_norm=self.spatial_norm, return_log=False)
+                                     metrics=self.metric_list if metric_list is None else metric_list, 
+                                     spatial_norm=self.spatial_norm, return_log=False)
                 eval_res['loss'] = self.criterion(pred_y, batch_y).cpu().numpy()
                 for k in eval_res.keys():
                     eval_res[k] = eval_res[k].reshape(1)
@@ -143,7 +144,7 @@ class Base_method(object):
             results_all[k] = results_strip
         return results_all
 
-    def _nondist_forward_collect(self, data_loader, length=None, gather_data=False):
+    def _nondist_forward_collect(self, data_loader, metric_list=None, length=None, gather_data=False):
         """Forward and collect predictios.
 
         Args:
@@ -157,6 +158,7 @@ class Base_method(object):
         # preparation
         results = []
         prog_bar = ProgressBar(len(data_loader))
+        # zyhe: is this variable useful?
         length = len(data_loader.dataset) if length is None else length
 
         # loop
@@ -171,7 +173,8 @@ class Base_method(object):
             else:  # return metrics
                 eval_res, _ = metric(pred_y.cpu().numpy(), batch_y.cpu().numpy(),
                                      data_loader.dataset.mean, data_loader.dataset.std,
-                                     metrics=self.metric_list, spatial_norm=self.spatial_norm, return_log=False)
+                                     metrics=self.metric_list if metric_list is None else metric_list, 
+                                     spatial_norm=self.spatial_norm, return_log=False)
                 eval_res['loss'] = self.criterion(pred_y, batch_y).cpu().numpy()
                 for k in eval_res.keys():
                     eval_res[k] = eval_res[k].reshape(1)
@@ -225,11 +228,18 @@ class Base_method(object):
         """
         self.model.eval()
         if self.dist and self.world_size > 1:
-            results = self._dist_forward_collect(test_loader, gather_data=True)
+            results = self._dist_forward_collect(test_loader, kwargs['metric_list'], gather_data=False)
         else:
-            results = self._nondist_forward_collect(test_loader, gather_data=True)
+            results = self._nondist_forward_collect(test_loader, kwargs['metric_list'], gather_data=False)
 
-        return results
+        eval_log = ""
+        for k, v in results.items():
+            v = v.mean()
+            if k != "loss":
+                eval_str = f"{k}:{v.mean()}" if len(eval_log) == 0 else f", {k}:{v.mean()}"
+                eval_log += eval_str
+                
+        return results, eval_log
 
     def current_lr(self) -> Union[List[float], Dict[str, List[float]]]:
         """Get current learning rates.
