@@ -144,7 +144,7 @@ class Base_method(object):
             results_all[k] = results_strip
         return results_all
 
-    def _nondist_forward_collect(self, data_loader, metric_list=None, length=None, gather_data=False):
+    def _nondist_forward_collect(self, dataLoader, metric_list=None, length=None, gather_data=False):
         """Forward and collect predictios.
 
         Args:
@@ -156,6 +156,7 @@ class Base_method(object):
             results_all (dict(np.ndarray)): The concatenated outputs.
         """
         # preparation
+        data_loader = dataLoader
         results = []
         resulting_images = []
         prog_bar = ProgressBar(len(data_loader))
@@ -170,23 +171,29 @@ class Base_method(object):
             rand_idx = rand_idx - num_images
 
         # loop
-        for idx, (batch_x, batch_y) in enumerate(data_loader):
+        for idx, (batch_x, batch_y, mean, std) in enumerate(data_loader):
             # print(f"Index {idx}")
             with torch.no_grad():
                 batch_x, batch_y = batch_x.to(self.device), batch_y.to(self.device)
                 pred_y = self._predict(batch_x, batch_y)
                 # print(f"pred_y shape: {pred_y.shape}")
+            
+            data_mean, data_std = mean.cpu().numpy(), std.cpu().numpy()
+            data_mean, data_std = np.transpose(data_mean, (0, 3, 1, 2)), np.transpose(data_std, (0, 3, 1, 2))
+            data_mean, data_std = np.expand_dims(data_mean, axis=0), np.expand_dims(data_std, axis=0)
+            # data_mean = np.squeeze(mean.cpu().numpy()) 
+            # data_std = np.squeeze(std.cpu().numpy())
 
             if gather_data:  # return raw datas
                 # print("gather data at index {}".format(idx))
                 results.append(dict(zip(['inputs', 'preds', 'trues'],
                                         [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
             else:  # return metrics
-                if idx >= rand_idx and idx < rand_idx + num_images:
-                    resulting_images.append(dict(zip(['inputs', 'preds', 'trues'],
-                                                     [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
+                # if idx >= rand_idx and idx < rand_idx + num_images:
+                #     resulting_images.append(dict(zip(['inputs', 'preds', 'trues'],
+                #                                      [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
                 eval_res, _ = metric(pred_y.cpu().numpy(), batch_y.cpu().numpy(),
-                                     data_loader.dataset.mean, data_loader.dataset.std_dev,
+                                     data_mean, data_std,
                                      metrics=self.metric_list if metric_list is None else metric_list, 
                                      spatial_norm=self.spatial_norm, return_log=False)
                 eval_res['loss'] = self.criterion(pred_y, batch_y).cpu().numpy()
@@ -209,8 +216,8 @@ class Base_method(object):
             results_all[k] = np.concatenate([batch[k] for batch in results], axis=0)
         
         resulting_images_all = {}
-        for key in resulting_images[0].keys():
-            resulting_images_all[key] = np.concatenate([batch[key] for batch in resulting_images], axis=0)
+        # for key in resulting_images[0].keys():
+        #     resulting_images_all[key] = np.concatenate([batch[key] for batch in resulting_images], axis=0)
             
         return (results_all, resulting_images_all)
 
@@ -229,7 +236,7 @@ class Base_method(object):
         if self.dist and self.world_size > 1:
             results = self._dist_forward_collect(vali_loader, len(vali_loader.dataset), gather_data=False)
         else:
-            results = self._nondist_forward_collect(vali_loader, len(vali_loader.dataset), gather_data=False)
+            results = self._nondist_forward_collect(dataLoader=vali_loader, length=len(vali_loader.dataset), gather_data=False)
 
         eval_log = ""
         for k, v in results.items():

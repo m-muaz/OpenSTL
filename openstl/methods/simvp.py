@@ -60,7 +60,7 @@ class SimVP(Base_method):
         train_pbar = tqdm(train_loader) if self.rank == 0 else train_loader
 
         end = time.time()
-        for batch_x, batch_y in train_pbar:
+        for batch_x, batch_y, _, _ in train_pbar:
             data_time_m.update(time.time() - end)
             self.model_optim.zero_grad()
 
