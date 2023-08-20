@@ -58,7 +58,7 @@ class MB(object):
         self.cum_sum = list(np.cumsum([0] + [el for el in self.counts]))
 
         # make dictionary to store length and dirname
-        self._len_dirname = {(len(el) - self.seq_len + 1): os.path.dirname(el[0]) for el in self.ref}
+        self._len_dirname = {(len(el) - self.seq_len + 1): os.path.basename(os.path.dirname(el[0])) for el in self.ref}
 
         # print len dir dict
         print(self._len_dirname)
@@ -134,7 +134,7 @@ class MB(object):
         with tqdm(total=num_images, desc="\033[92mComputing mean\033[0m") as pbar:
             for idx, img_path in enumerate(dir_list):
                 if not dirname:
-                    dirname = os.path.dirname(img_path)
+                    dirname = os.path.basename(os.path.dirname(img_path))
                 img = cv2.imread(img_path)
                 img = cv2.resize(img, (self.crop_size[1], self.crop_size[0]))
                 img = img.astype(float) / 255.0
@@ -153,7 +153,7 @@ class MB(object):
         with tqdm(total=num_images, desc="\033[92mComputing std dev\033[0m") as pbar:
             for idx, img_path in enumerate(dir_list):
                 if not dirname:
-                    dirname = os.path.dirname(img_path)
+                    dirname = os.path.basename(os.path.dirname(img_path))
                 img = cv2.imread(img_path)
                 img = cv2.resize(img, (self.crop_size[1], self.crop_size[0]))
                 img = img.astype(float) / 255.0
@@ -225,7 +225,7 @@ class MB(object):
         for idx, dir in enumerate(self.ref):
             img_path = dir[0]
             # extract base name of the image
-            basename = os.path.dirname(img_path)
+            basename = os.path.basename(os.path.dirname(img_path))
 
             # make basename the key of the dictionary and the value is a tuple of mean and std
             dataset_statistics[basename] = (self.mean_dict[basename], self.std_dict[basename])
@@ -241,6 +241,7 @@ class MB(object):
 
     # Method to load the mean and standard deviation of the dataset
     def load_mean_std(self, path):
+        os.makedirs(path, exist_ok=True)
         # Check if the file exists under the path
         filename = os.path.join(path, f"dataset_statistics_{self.train}.npy")
         if os.path.exists(filename):
@@ -253,7 +254,7 @@ class MB(object):
             # loop over the dictionary to extract the mean and std
             for dir in self.ref:
                 img_path = dir[0]
-                basename = os.path.dirname(img_path)
+                basename = os.path.basename(os.path.dirname(img_path))
                 self.mean_dict[basename] = dataset_statistics[basename][0]
                 self.std_dict[basename] = dataset_statistics[basename][1]
                 # self.mean.append(dataset_statistics[basename][0])
@@ -341,7 +342,7 @@ class MB(object):
                 for im in gs
             ]
 
-        input_images = np.stack([((im.astype(float) / 255.0) - self.mean)/self.std_dev for im in images], axis=0)
+        input_images = np.stack([((im.astype(float) / 255.0) - self.mean) / self.std_dev for im in images], axis=0)
         # input_images = np.stack([(im.astype(float) / 255.0) for im in images], axis=0)
         input_gs = np.stack([im.astype(float) / 255.0 for im in gs], axis=0)
 

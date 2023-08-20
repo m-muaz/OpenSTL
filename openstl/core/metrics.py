@@ -110,7 +110,7 @@ class LPIPS(torch.nn.Module):
         return self.loss_fn.forward(img1, img2).squeeze().detach().cpu().numpy()
 
 
-def metric(pred, true, mean=None, std=None, metrics=['mae', 'mse'],
+def metric(pred, true, mean, std, metrics=['mae', 'mse'],
            clip_range=[0, 1], channel_names=None,
            spatial_norm=False, return_log=True):
     """The evaluation function to output metrics.
@@ -129,12 +129,9 @@ def metric(pred, true, mean=None, std=None, metrics=['mae', 'mse'],
     Returns:
         dict: evaluation results
     """
-    if mean is not None and std is not None:
-        pred = pred * std + mean
-        true = true * std + mean
-    else:
-        pred = pred * 255.0
-        true = true * 255.0
+    pred = pred * std + mean
+    true = true * std + mean
+
     eval_res = {}
     eval_log = ""
     allowed_metrics = ['mae', 'mse', 'rmse', 'ssim', 'psnr', 'snr', 'lpips']

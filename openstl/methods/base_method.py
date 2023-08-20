@@ -121,7 +121,7 @@ class Base_method(object):
                                         [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
             else:  # return metrics
                 eval_res, _ = metric(pred_y.cpu().numpy(), batch_y.cpu().numpy(),
-                                     data_loader.dataset.mean, data_loader.dataset.std,
+                                     data_loader.dataset.mean, data_loader.dataset.std_dev,
                                      metrics=self.metric_list if metric_list is None else metric_list, 
                                      spatial_norm=self.spatial_norm, return_log=False)
                 eval_res['loss'] = self.criterion(pred_y, batch_y).cpu().numpy()
@@ -186,7 +186,7 @@ class Base_method(object):
                     resulting_images.append(dict(zip(['inputs', 'preds', 'trues'],
                                                      [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
                 eval_res, _ = metric(pred_y.cpu().numpy(), batch_y.cpu().numpy(),
-                                     data_loader.dataset.mean, data_loader.dataset.std,
+                                     data_loader.dataset.mean, data_loader.dataset.std_dev,
                                      metrics=self.metric_list if metric_list is None else metric_list, 
                                      spatial_norm=self.spatial_norm, return_log=False)
                 eval_res['loss'] = self.criterion(pred_y, batch_y).cpu().numpy()
