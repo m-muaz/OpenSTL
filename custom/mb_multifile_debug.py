@@ -33,8 +33,14 @@ class MB(object):
         self.start_index = 0
         self.stride = args.stride
         self.dtype = args.dtype
+
+        # Class variables to represent mean and std of the specific dataset which is being sampled
         self.mean = None
-        self.std = None
+        self.std_dev = None
+
+        # Dictionary to store means and std devs of datasets
+        self.mean_dict = {}
+        self.std_dict = {}
 
         assert os.path.exists(data_root)
         assert os.path.exists(gs_root)
@@ -47,13 +53,20 @@ class MB(object):
         self.gs_ref = self.collectFileList(gs_root)
         # self.ad_ref = self.collectAudioFileList(audio_root)
 
-        counts = [(len(el) - self.seq_len + 1) for el in self.ref]
-        self.total = np.sum(counts)
-        self.cum_sum = list(np.cumsum([0] + [el for el in counts]))
+        self.counts = [(len(el) - self.seq_len + 1) for el in self.ref]
+        self.total = np.sum(self.counts)
+        self.cum_sum = list(np.cumsum([0] + [el for el in self.counts]))
+
+        # make dictionary to store length and dirname
+        self._len_dirname = {(len(el) - self.seq_len + 1): os.path.dirname(el[0]) for el in self.ref}
+
+        # print len dir dict
+        print(self._len_dirname)
 
         # Load mean and std of the dataset
         self.load_mean_std(args.model_save_path)
-        if self.mean is None or self.std is None:
+        # Check if mean_dict and std_dict are empty
+        if not self.mean_dict and not self.std_dict:
             # Calculate mean and std
             self._data_mean()
             self._data_std_dev()
@@ -117,40 +130,47 @@ class MB(object):
     def _compute_mean_for_dir(self, dir_list):
         _placeholder_mean = 0.0
         num_images = len(dir_list)
+        dirname = None
         with tqdm(total=num_images, desc="\033[92mComputing mean\033[0m") as pbar:
             for idx, img_path in enumerate(dir_list):
+                if not dirname:
+                    dirname = os.path.dirname(img_path)
                 img = cv2.imread(img_path)
                 img = cv2.resize(img, (self.crop_size[1], self.crop_size[0]))
                 img = img.astype(float) / 255.0
-                _placeholder_mean += np.sum(img, axis=(2))
+                _placeholder_mean += img
 
                 pbar.update(1)
 
-        _placeholder_mean /= (len(dir_list) * 3)
-        return _placeholder_mean
+        _placeholder_mean /= (len(dir_list))
+        return (dirname, _placeholder_mean)
 
     # Function to compute standard deviation of each dir
-    def _compute_std_for_dir(self, dir_list, mean):
+    def _compute_std_for_dir(self, dir_list):
         _placeholder_std = 0.0
         num_images = len(dir_list)
+        dirname = None
         with tqdm(total=num_images, desc="\033[92mComputing std dev\033[0m") as pbar:
             for idx, img_path in enumerate(dir_list):
+                if not dirname:
+                    dirname = os.path.dirname(img_path)
                 img = cv2.imread(img_path)
                 img = cv2.resize(img, (self.crop_size[1], self.crop_size[0]))
                 img = img.astype(float) / 255.0
-                _placeholder_std += np.sum(np.square(img - np.expand_dims(mean,axis=(2))), axis=(2))
+                mean = self.mean_dict[dirname]
+                _placeholder_std += np.square(img - mean)
 
                 pbar.update(1)
 
-        _placeholder_std /= (len(dir_list) * 3)
+        _placeholder_std /= (len(dir_list))
         _placeholder_std = np.sqrt(_placeholder_std)
-        return _placeholder_std
+        return (dirname, _placeholder_std)
 
     # Compute mean of the dataset
     def _data_mean(self):
         print(">" * 35 + "Computing mean of the dataset" + ">" * 35)
-        # list to store mean of the dataset
-        mean_list = []
+        # dict to store mean of the dataset
+        mean_list = {}
 
         # measure time taken to compute mean
         start_time = time.time()
@@ -160,37 +180,41 @@ class MB(object):
             # print(results.shape)
 
         for inner_result in results:
-            mean_list.append(inner_result)
+            print(inner_result)
+            mean_list[inner_result[0]] = inner_result[1]
+            # mean_list.append(inner_result)
 
         end_time = time.time()
         print(f"Time taken to compute mean: {end_time - start_time} seconds")
 
-        self.mean = mean_list
-        print(self.mean[0].shape)
+        self.mean_dict = mean_list
+        # print(self.mean[0].shape)
+        print([self.mean_dict[key].shape for key in self.mean_dict.keys()])
         print(">" * 35 + "Mean computation complete" + ">" * 35)
 
     # Compute the standard deviation of the dataset
     def _data_std_dev(self):
         print(">" * 35 + "Computing standard deviation of the dataset" + ">" * 35)
         # list to store standard deviation of the dataset
-        std_list = []
+        std_list = {}
 
         # measure time taken to compute standard deviation
         start_time = time.time()
 
         with concurrent.futures.ProcessPoolExecutor() as executor:
-            results = executor.map(self._compute_std_for_dir, self.ref, self.mean)
+            results = executor.map(self._compute_std_for_dir, self.ref)
 
         for inner_result in results:
-            std_list.append(inner_result)
+            std_list[inner_result[0]] = inner_result[1]
+            # std_list.append(inner_result)
 
         end_time = time.time()
         print(
             f"Time taken to compute standard deviation: {end_time - start_time} seconds"
         )
 
-        self.std = std_list
-        print(self.std[0].shape)
+        self.std_dict = std_list
+        print(self.std_dict[key].shape for key in self.std_dict.keys())
         print(">" * 35 + "Standard deviation computation complete" + ">" * 35)
 
     # Method to save the mean and standard deviation of the dataset
@@ -201,10 +225,10 @@ class MB(object):
         for idx, dir in enumerate(self.ref):
             img_path = dir[0]
             # extract base name of the image
-            basename = os.path.basename(img_path)
+            basename = os.path.dirname(img_path)
 
             # make basename the key of the dictionary and the value is a tuple of mean and std
-            dataset_statistics[basename] = (self.mean[0], self.std[0])
+            dataset_statistics[basename] = (self.mean_dict[basename], self.std_dict[basename])
 
         # save the dictionary as a numpy file if the file does not exist under the path
         if os.path.exists(path):
@@ -212,6 +236,7 @@ class MB(object):
             filename = os.path.join(path, f"dataset_statistics_{self.train}.npy")
             print(f"Saving dataset statistics to: {filename}")
             np.save(filename, dataset_statistics)
+            print(dataset_statistics)
             print(">" * 35 + "Dataset statistics saved" + ">" * 35)
 
     # Method to load the mean and standard deviation of the dataset
@@ -219,17 +244,20 @@ class MB(object):
         # Check if the file exists under the path
         filename = os.path.join(path, f"dataset_statistics_{self.train}.npy")
         if os.path.exists(filename):
-            # make self.mean and self.std a list
-            self.mean = []
-            self.std = []
-            # load the dictionary as a numpy file
+            # # make self.mean and self.std a list
+            # self.mean = {}
+            # self.std = {}
+            # # load the dictionary as a numpy file
             dataset_statistics = np.load(filename, allow_pickle=True).item()
+            # print(dataset_statistics)
             # loop over the dictionary to extract the mean and std
             for dir in self.ref:
                 img_path = dir[0]
-                basename = os.path.basename(img_path)
-                self.mean.append(dataset_statistics[basename][0])
-                self.std.append(dataset_statistics[basename][1])
+                basename = os.path.dirname(img_path)
+                self.mean_dict[basename] = dataset_statistics[basename][0]
+                self.std_dict[basename] = dataset_statistics[basename][1]
+                # self.mean.append(dataset_statistics[basename][0])
+                # self.std.append(dataset_statistics[basename][1])
             print(">" * 35 + "Dataset statistics loaded" + ">" * 35)
         else:
             print(">" * 35 + "Dataset statistics not found" + ">" * 35)
@@ -244,6 +272,14 @@ class MB(object):
 
         dataset_index = np.searchsorted(self.cum_sum, index + 1)
         index = index - self.cum_sum[np.maximum(0, dataset_index - 1)]
+
+        # get the mean and std dev of the dataset
+        dataset_len = self.counts[dataset_index - 1]
+        # print(dataset_len)
+        dirname = self._len_dirname[dataset_len]
+        self.mean = self.mean_dict[dirname]
+        self.std_dev = self.std_dict[dirname]
+        # print("Mean shape , Std Dev shape: ", self.mean.shape, self.std.shape)
 
         image_list = self.ref[dataset_index - 1]
         gs_list = self.gs_ref[dataset_index - 1]
@@ -305,8 +341,11 @@ class MB(object):
                 for im in gs
             ]
 
-        input_images = np.stack([im.astype(float) / 255.0 for im in images], axis=0)
+        input_images = np.stack([((im.astype(float) / 255.0) - self.mean)/self.std_dev for im in images], axis=0)
+        # input_images = np.stack([(im.astype(float) / 255.0) for im in images], axis=0)
         input_gs = np.stack([im.astype(float) / 255.0 for im in gs], axis=0)
+
+
         # input_audios = np.stack([im.astype(float) for im in input_ads], axis=0)
 
         # return (pre_seq, post_seq) pairs from batch generator

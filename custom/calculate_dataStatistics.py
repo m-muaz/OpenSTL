@@ -63,13 +63,13 @@ train_data = MB(
 #     audio_root=config.val_root,
 # )
 
-# # Creating dataloader for non-distributed training
-# train_sampler = None
-# test_sampler = None
-# config.data_threads = 2
+# Creating dataloader for non-distributed training
+train_sampler = None
+test_sampler = None
+config.data_threads = 2
 
 
-# # Define the dataloaders
+# Define the dataloaders
 # train_loader = DataLoader(
 #     train_data,
 #     num_workers=config.data_threads,
