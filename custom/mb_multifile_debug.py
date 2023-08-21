@@ -5,7 +5,6 @@ import cv2
 import time
 import concurrent.futures
 from tqdm import tqdm
-import threading
 
 import torch
 
@@ -34,14 +33,7 @@ class MB(object):
         self.start_index = 0
         self.stride = args.stride
         self.dtype = args.dtype
-
-        # Class variables to represent mean and std of the specific dataset which is being sampled
-        self.mean = None
-        self.std_dev = None
-
-        self.mean_lock = threading.Lock()
-        self.std_dev_lock = threading.Lock()
-
+        
         # Dictionary to store means and std devs of datasets
         self.mean_dict = {}
         self.std_dict = {}
@@ -267,13 +259,6 @@ class MB(object):
         else:
             print(">" * 35 + "Dataset statistics not found" + ">" * 35)
 
-    def _update_mean_std(self, dataset_len):
-        dirname = self._len_dirname[dataset_len]
-        with self.mean_lock:
-            self.mean = self.mean_dict[dirname]
-        with self.std_dev_lock:
-            self.std_dev = self.std_dict[dirname]
-
     def __len__(self):
         return int(self.total)
 
@@ -285,13 +270,14 @@ class MB(object):
         dataset_index = np.searchsorted(self.cum_sum, index + 1)
         index = index - self.cum_sum[np.maximum(0, dataset_index - 1)]
 
-        # get the mean and std dev of the dataset
+        # Get the mean and std dev of the dataset
         dataset_len = self.counts[dataset_index - 1]
         # print("Dataset Index: ", dataset_index)
         # print("Dataset Len: ", dataset_len)
         
-        # Update the mean and std dev
-        self._update_mean_std(dataset_len)
+        dirname = self._len_dirname[dataset_len]
+        mean = self.mean_dict[dirname]
+        std_dev = self.std_dict[dirname]
         # print("Mean shape , Std Dev shape: ", self.mean.shape, self.std_dev.shape)
 
         image_list = self.ref[dataset_index - 1]
@@ -354,7 +340,7 @@ class MB(object):
                 for im in gs
             ]
 
-        input_images = np.stack([((im.astype(float) / 255.0) - self.mean) / self.std_dev for im in images], axis=0)
+        input_images = np.stack([((im.astype(float) / 255.0) - mean) / std_dev for im in images], axis=0)
         # input_images = np.stack([(im.astype(float) / 255.0) for im in images], axis=0)
         input_gs = np.stack([im.astype(float) / 255.0 for im in gs], axis=0)
 
@@ -378,6 +364,6 @@ class MB(object):
         return (
             input_images_tensor[: self.input_length, :, :, :],
             input_images_tensor[self.input_length :, :, :, :],
-            self.mean,
-            self.std_dev
+            mean,
+            std_dev
         )
