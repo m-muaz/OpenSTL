@@ -147,5 +147,5 @@ torch.cuda.empty_cache()
 print(">" * 35, " Training ", "<" * 35)
 exp.train()
 
-print(">" * 35, " Testing ", "<" * 35)
-exp.test()
+# print(">" * 35, " Testing ", "<" * 35)
+# exp.test()

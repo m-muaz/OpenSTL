@@ -215,11 +215,12 @@ class Base_method(object):
         for k in results[0].keys():
             results_all[k] = np.concatenate([batch[k] for batch in results], axis=0)
         
-        resulting_images_all = {}
+        # resulting_images_all = {}
         # for key in resulting_images[0].keys():
         #     resulting_images_all[key] = np.concatenate([batch[key] for batch in resulting_images], axis=0)
             
-        return (results_all, resulting_images_all)
+        # return (results_all, resulting_images_all)
+        return results_all
 
     def vali_one_epoch(self, runner, vali_loader, **kwargs):
         """Evaluate the model with val_loader.
@@ -261,9 +262,10 @@ class Base_method(object):
         if self.dist and self.world_size > 1:
             results = self._dist_forward_collect(test_loader, kwargs['metric_list'], gather_data=False)
         else:
-            results = self._nondist_forward_collect(test_loader, kwargs['metric_list'], gather_data=False)
+            results = self._nondist_forward_collect(test_loader, metric_list=kwargs['metric_list'], gather_data=False)
 
-        metric_results = results[0] if len(results) > 1 else results
+        metric_results = results[0] if isinstance(results, tuple) else results
+        # metric_results = results[0] if len(results) > 1 else results
 
         eval_log = ""
         for k, v in metric_results.items():
