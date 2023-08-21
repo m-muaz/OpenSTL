@@ -138,3 +138,7 @@ configs_test/
 api/test.py
 configs/kinetics/simvp
 configs/bair/simvp
+
+
+# custom
+custom/data_stats
