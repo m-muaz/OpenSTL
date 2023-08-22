@@ -52,19 +52,27 @@ train_data = MB(
     config,
     train=True,
     data_root=config.train_root,
-    gs_root=config.train_gs,
+    gs_root=config.train_root,
     audio_root=config.train_root,
 )
-test_data = MB(
+val_data = MB(
     config,
     train=False,
     data_root=config.val_root,
-    gs_root=config.val_gs,
+    gs_root=config.val_root,
     audio_root=config.val_root,
 )
 
+test_data = MB(
+    config,
+    train=False,
+    data_root=config.test_root,
+    gs_root=config.test_root,
+    audio_root=config.test_root,
+)
 # Creating dataloader for non-distributed training
 train_sampler = None
+val_sampler = None
 test_sampler = None
 config.data_threads = 2
 
@@ -89,11 +97,11 @@ test_loader = DataLoader(
 )
 
 val_loader = DataLoader(
-    test_data,
+    val_data,
     num_workers=config.data_threads,
     batch_size=config.val_batch_size,
-    sampler=test_sampler,
-    shuffle=(test_sampler is None),
+    sampler=val_sampler,
+    shuffle=(val_sampler is None),
     pin_memory=True,
 )
 

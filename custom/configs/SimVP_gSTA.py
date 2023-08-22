@@ -12,6 +12,6 @@ fp16=False
 lr = 1e-3
 drop_path = 0
 sched = "onecycle"
-epoch = 1
+epoch = 10
 # model checkpoint
 ex_name = f"custom_yt_data_normalized_{epoch}_epochs_SimVP_gSTA"
