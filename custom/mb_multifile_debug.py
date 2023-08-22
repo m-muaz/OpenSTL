@@ -20,9 +20,9 @@ AUDIO_SAMPLE_RATE = 16000
 
 class MB(object):
     def __init__(
-        self, args, data_root, gs_root, audio_root, train=False, transform=None
+        self, args, data_root, gs_root, audio_root, task, transform=None
     ):
-        self.train = train
+        self.task = task
         self.transform = transform
         self.chsize = 3
         # carry over command line arguments
@@ -41,7 +41,7 @@ class MB(object):
         assert os.path.exists(data_root)
         assert os.path.exists(gs_root)
         assert os.path.exists(audio_root)
-        if self.train:
+        if self.task == 'train':
             self.start_index = 0
 
         # collect, colors, motion vectors, and depth
@@ -59,17 +59,15 @@ class MB(object):
         # print len dir dict
         print(self._len_dirname)
 
-        # # Load mean and std of the dataset
-        # self.load_mean_std(args.model_save_path)
-        # # Check if mean_dict and std_dict are empty
-        # if not self.mean_dict and not self.std_dict:
-
-        # Calculate mean and std
-        self._data_mean()
-        self._data_std_dev()
-
-            # # Save mean and std of the dataset
-            # self.save_mean_std(args.model_save_path)
+        # Load mean and std of the dataset
+        self.load_mean_std(args.model_save_path)
+        # Check if mean_dict and std_dict are empty
+        if not self.mean_dict and not self.std_dict:
+            # Calculate mean and std
+            self._data_mean()
+            self._data_std_dev()
+            # Save mean and std of the dataset
+            self.save_mean_std(args.model_save_path)
 
     def collectFileList(self, root):
         include_ext = [".png", ".jpg", "jpeg", ".bmp"]
@@ -231,7 +229,7 @@ class MB(object):
         # save the dictionary as a numpy file if the file does not exist under the path
         if os.path.exists(path):
             # save the dictionary as a numpy file with name dataset_statistics.npy
-            filename = os.path.join(path, f"dataset_statistics_{self.train}.npy")
+            filename = os.path.join(path, f"dataset_statistics_{self.task}.npy")
             print(f"Saving dataset statistics to: {filename}")
             np.save(filename, dataset_statistics)
             print(dataset_statistics)
@@ -241,7 +239,7 @@ class MB(object):
     def load_mean_std(self, path):
         os.makedirs(path, exist_ok=True)
         # Check if the file exists under the path
-        filename = os.path.join(path, f"dataset_statistics_{self.train}.npy")
+        filename = os.path.join(path, f"dataset_statistics_{self.task}.npy")
         if os.path.exists(filename):
             # # make self.mean and self.std a list
             # self.mean = {}

@@ -71,10 +71,10 @@ try:
     # Load data
     test_data = MB(
         config,
-        train=False,
-        data_root=config.val_root,
-        gs_root=config.val_root,
-        audio_root=config.val_root,
+        task='test',
+        data_root=config.test_root,
+        gs_root=config.test_root,
+        audio_root=config.test_root,
     )
 
     # Creating dataloader for non-distributed training

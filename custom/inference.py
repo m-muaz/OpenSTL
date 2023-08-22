@@ -37,17 +37,24 @@ try:
     # Load training and testing data
     train_data = MB(
         config,
-        train=True,
+        task='train',
         data_root=config.train_root,
         gs_root=config.train_gs,
         audio_root=config.train_root,
     )
+    val_data = MB(
+        config,
+        task='val',
+        data_root=config.val_root,
+        gs_root=config.val_root,
+        audio_root=config.val_root,
+    )
     test_data = MB(
         config,
-        train=False,
-        data_root=config.val_root,
-        gs_root=config.val_gs,
-        audio_root=config.val_root,
+        task='test',
+        data_root=config.test_root,
+        gs_root=config.test_root,
+        audio_root=config.test_root,
     )
 
     # Creating dataloader for non-distributed training
@@ -65,17 +72,15 @@ try:
         shuffle=(train_sampler is None),
         pin_memory=True,
     )
-
-    test_loader = DataLoader(
-        test_data,
+    val_loader = DataLoader(
+        val_data,
         num_workers=config.data_threads,
         batch_size=config.val_batch_size,
         sampler=test_sampler,
         shuffle=(test_sampler is None),
         pin_memory=True,
     )
-
-    val_loader = DataLoader(
+    test_loader = DataLoader(
         test_data,
         num_workers=config.data_threads,
         batch_size=config.val_batch_size,
