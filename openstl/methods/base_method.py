@@ -109,19 +109,25 @@ class Base_method(object):
             prog_bar = ProgressBar(len(data_loader))
 
         # loop
-        for idx, (batch_x, batch_y) in enumerate(data_loader):
+        for idx, (batch_x, batch_y, mean, std) in enumerate(data_loader):
             if idx == 0:
                 part_size = batch_x.shape[0]
             with torch.no_grad():
                 batch_x, batch_y = batch_x.to(self.device), batch_y.to(self.device)
                 pred_y = self._predict(batch_x, batch_y)
+            
+            data_mean, data_std = mean.cpu().numpy(), std.cpu().numpy()
+            data_mean, data_std = np.transpose(data_mean, (0, 3, 1, 2)), np.transpose(data_std, (0, 3, 1, 2))
+            data_mean, data_std = np.expand_dims(data_mean, axis=0), np.expand_dims(data_std, axis=0)
+            # data_mean = np.squeeze(mean.cpu().numpy()) 
+            # data_std = np.squeeze(std.cpu().numpy())
 
             if gather_data:  # return raw datas
                 results.append(dict(zip(['inputs', 'preds', 'trues'],
                                         [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
             else:  # return metrics
                 eval_res, _ = metric(pred_y.cpu().numpy(), batch_y.cpu().numpy(),
-                                     data_loader.dataset.mean, data_loader.dataset.std_dev,
+                                     data_mean, data_std,
                                      metrics=self.metric_list if metric_list is None else metric_list, 
                                      spatial_norm=self.spatial_norm, return_log=False)
                 eval_res['loss'] = self.criterion(pred_y, batch_y).cpu().numpy()
