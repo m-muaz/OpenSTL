@@ -50,14 +50,14 @@ config.dtype = torch.cuda.FloatTensor
 # Load training and testing data
 train_data = MB(
     config,
-    train=True,
+    task='train',
     data_root=config.train_root,
     gs_root=config.train_root,
     audio_root=config.train_root,
 )
 val_data = MB(
     config,
-    train=False,
+    task='val',
     data_root=config.val_root,
     gs_root=config.val_root,
     audio_root=config.val_root,
@@ -65,7 +65,7 @@ val_data = MB(
 
 test_data = MB(
     config,
-    train=False,
+    task='test',
     data_root=config.test_root,
     gs_root=config.test_root,
     audio_root=config.test_root,
