@@ -34,37 +34,23 @@ try:
     config = Config(config)
     config.dtype = torch.cuda.FloatTensor
 
-    # Load training and testing data
-    train_data = MB(
-        config,
-        train=True,
-        data_root=config.train_root,
-        gs_root=config.train_gs,
-        audio_root=config.train_root,
-    )
+    # Load testing data
+
     test_data = MB(
         config,
         train=False,
-        data_root=config.val_root,
-        gs_root=config.val_gs,
-        audio_root=config.val_root,
+        data_root=config.test_root,
+        gs_root=config.test_root,
+        audio_root=config.test_root,
     )
-
     # Creating dataloader for non-distributed training
     train_sampler = None
+    val_sampler = None
     test_sampler = None
     config.data_threads = 2
 
 
-    # Define the dataloaders
-    train_loader = DataLoader(
-        train_data,
-        num_workers=config.data_threads,
-        batch_size=config.batch_size,
-        sampler=train_sampler,
-        shuffle=(train_sampler is None),
-        pin_memory=True,
-    )
+    # Define the dataloaders using the test loaders as the train and val loaders are not used
 
     test_loader = DataLoader(
         test_data,
@@ -75,14 +61,6 @@ try:
         pin_memory=True,
     )
 
-    val_loader = DataLoader(
-        test_data,
-        num_workers=config.data_threads,
-        batch_size=config.val_batch_size,
-        sampler=test_sampler,
-        shuffle=(test_sampler is None),
-        pin_memory=True,
-    )
 
     model_args = create_parser().parse_args()
     model_config = model_args.__dict__
@@ -109,7 +87,7 @@ try:
     # setup_multi_processes(model_config)
 
     # create the experiment object
-    exp = BaseExperiment(model_args, dataloaders=(train_loader, val_loader, test_loader))
+    exp = BaseExperiment(model_args, dataloaders=(test_loader, test_loader, test_loader))
 
 
     print(">" * 35, " Testing ", "<" * 35)

@@ -278,8 +278,8 @@ class MB(object):
         # print("Dataset Len: ", dataset_len)
         
         dirname = self._len_dirname[dataset_len]
-        mean = self.mean_dict[dirname]
-        std_dev = self.std_dict[dirname]
+        mean = self.mean_dict[dirname] if dirname in self.mean_dict else 0.0
+        std_dev = self.std_dict[dirname] if dirname in self.std_dict else 1.0
         # print("Mean shape , Std Dev shape: ", self.mean.shape, self.std_dev.shape)
 
         image_list = self.ref[dataset_index - 1]
@@ -342,7 +342,7 @@ class MB(object):
                 for im in gs
             ]
 
-        input_images = np.stack([((im.astype(float) / 255.0) - mean) / std_dev for im in images], axis=0)
+        input_images = np.stack([(((im.astype(float) / 255.0) - mean) / (std_dev + np.finfo(float).eps)) for im in images], axis=0)
         # input_images = np.stack([(im.astype(float) / 255.0) for im in images], axis=0)
         input_gs = np.stack([im.astype(float) / 255.0 for im in gs], axis=0)
 

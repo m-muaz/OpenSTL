@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import torch
 
+
 try:
     import lpips
     from skimage.metrics import structural_similarity as cal_ssim

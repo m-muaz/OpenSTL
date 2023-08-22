@@ -9,7 +9,7 @@ N_T = 3
 N_S = 6
 fp16=False
 # training
-lr = 1e-3
+lr = 1e-4
 drop_path = 0
 sched = "onecycle"
 epoch = 10

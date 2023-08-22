@@ -107,8 +107,9 @@ val_loader = DataLoader(
 
 # print(type(train_loader))
 
+# print([config.n_past, 3, config.image_height, config.image_width])
 # # Generate a batch of data for analysis
-# for X, Y in train_loader:
+# for X, Y, _, _ in train_loader:
 #     # print(data.shape)
 #     condition_frames = X
 #     future_frames = Y
@@ -130,7 +131,7 @@ model_config = model_args.__dict__
 custom_training_config = {
     'batch_size': config.batch_size,
     'val_batch_size': config.val_batch_size,
-    'in_shape': (config.n_past, 3, config.image_width, config.image_height),
+    'in_shape': (config.n_past, 3, config.image_height, config.image_width),
     'pre_seq_length': config.n_past,
     'aft_seq_length': config.n_future,
     'total_length': config.n_past + config.n_future,
