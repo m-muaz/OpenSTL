@@ -38,7 +38,7 @@ try:
 
     test_data = MB(
         config,
-        train=False,
+        task='test',
         data_root=config.test_root,
         gs_root=config.test_root,
         audio_root=config.test_root,
