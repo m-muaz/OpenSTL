@@ -20,4 +20,8 @@ dependencies:
     - scikit-image<=0.19.3
     - timm<=0.6.11
     - tqdm
+    - opencv-python
+    - matplotlib
+    - tensorboardX
+    - natsort
 prefix: /opt/anaconda3/envs/openstl
