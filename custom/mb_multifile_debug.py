@@ -59,15 +59,15 @@ class MB(object):
         # print len dir dict
         print(self._len_dirname)
 
-        # Load mean and std of the dataset
-        self.load_mean_std(args.model_save_path)
-        # Check if mean_dict and std_dict are empty
-        if not self.mean_dict and not self.std_dict:
-            # Calculate mean and std
-            self._data_mean()
-            self._data_std_dev()
-            # Save mean and std of the dataset
-            self.save_mean_std(args.model_save_path)
+        # # Load mean and std of the dataset
+        # self.load_mean_std(args.model_save_path)
+        # # Check if mean_dict and std_dict are empty
+        # if not self.mean_dict and not self.std_dict:
+        #     # Calculate mean and std
+        #     self._data_mean()
+        #     self._data_std_dev()
+        #     # Save mean and std of the dataset
+        #     self.save_mean_std(args.model_save_path)
 
     def collectFileList(self, root):
         include_ext = [".png", ".jpg", "jpeg", ".bmp"]
@@ -340,7 +340,8 @@ class MB(object):
                 for im in gs
             ]
 
-        input_images = np.stack([(((im.astype(float) / 255.0) - mean) / (std_dev + np.finfo(float).eps)) for im in images], axis=0)
+        # input_images = np.stack([(((im.astype(float) / 255.0) - mean) / (std_dev + np.finfo(float).eps)) for im in images], axis=0)
+        input_images = np.stack([((im.astype(float) / 255.0) - mean) / std_dev for im in images], axis=0)
         # input_images = np.stack([(im.astype(float) / 255.0) for im in images], axis=0)
         input_gs = np.stack([im.astype(float) / 255.0 for im in gs], axis=0)
 
