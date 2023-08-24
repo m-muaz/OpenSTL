@@ -40,7 +40,7 @@ def create_parser():
     parser.add_argument('--launcher', default='none', type=str,
                         choices=['none', 'pytorch', 'slurm', 'mpi'],
                         help='job launcher for distributed training')
-    parser.add_argument('--local_rank', type=int, default=0)
+    parser.add_argument('--local-rank', type=int, default=0)
     parser.add_argument('--port', type=int, default=29500,
                         help='port only works when launcher=="slurm"')
     parser.add_argument('--metrics', default='none', type=str, 
