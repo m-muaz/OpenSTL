@@ -102,7 +102,7 @@ if __name__ == '__main__':
     # update the model config with the custom training config
     model_config = update_config(model_config, load_config("./custom/configs/SimVP_gSTA.py"))
     
-    if model_config.dist:
+    if model_args.dist:
         n_gpus_total = dist.get_world_size()
         config.batch_size = int(config.batch_size / n_gpus_total)
         config.data_threads = int((config.data_threads + n_gpus_total) / n_gpus_total)
