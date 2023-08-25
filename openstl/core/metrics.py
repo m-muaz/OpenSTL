@@ -182,36 +182,40 @@ def metric(pred, true, mean, std, metrics=['mae', 'mse'],
     pred = np.maximum(pred, clip_range[0])
     pred = np.minimum(pred, clip_range[1])
     if 'ssim' in metrics:
-        ssim = 0
-        for b in range(pred.shape[0]):
-            for f in range(pred.shape[1]):
+        eval_res['ssim'] = []
+        for f in range(pred.shape[1]):
+            ssim = 0
+            for b in range(pred.shape[0]):
                 ssim += cal_ssim(pred[b, f].swapaxes(0, 2),
                                  true[b, f].swapaxes(0, 2), multichannel=True)
-        eval_res['ssim'] = ssim / (pred.shape[0] * pred.shape[1])
+            eval_res['ssim'].append(ssim / pred.shape[0])
 
     if 'psnr' in metrics:
-        psnr = 0
-        for b in range(pred.shape[0]):
-            for f in range(pred.shape[1]):
+        eval_res['psnr'] = []
+        for f in range(pred.shape[1]):
+            psnr = 0
+            for b in range(pred.shape[0]):
                 psnr += PSNR(pred[b, f], true[b, f])
-        eval_res['psnr'] = psnr / (pred.shape[0] * pred.shape[1])
+            eval_res['psnr'].append(psnr / pred.shape[0])
 
     if 'snr' in metrics:
-        snr = 0
-        for b in range(pred.shape[0]):
-            for f in range(pred.shape[1]):
+        eval_res['snr'] = []
+        for f in range(pred.shape[1]):
+            snr = 0
+            for b in range(pred.shape[0]):
                 snr += SNR(pred[b, f], true[b, f])
-        eval_res['snr'] = snr / (pred.shape[0] * pred.shape[1])
+            eval_res['snr'].append(snr / pred.shape[0])
 
     if 'lpips' in metrics:
-        lpips = 0
         cal_lpips = LPIPS(net='alex', use_gpu=False)
         pred = pred.transpose(0, 1, 3, 4, 2)
         true = true.transpose(0, 1, 3, 4, 2)
-        for b in range(pred.shape[0]):
-            for f in range(pred.shape[1]):
+        eval_res['lpips'] = []
+        for f in range(pred.shape[1]):
+            lpips = 0
+            for b in range(pred.shape[0]):
                 lpips += cal_lpips(pred[b, f], true[b, f])
-        eval_res['lpips'] = lpips / (pred.shape[0] * pred.shape[1])
+            eval_res['lpips'].append(lpips / pred.shape[0])
 
     if return_log:
         for k, v in eval_res.items():
