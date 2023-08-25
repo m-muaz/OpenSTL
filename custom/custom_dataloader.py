@@ -69,7 +69,7 @@ def createDataloader(dl_config, dist=False):
     val_loader = DataLoader(
         val_data,
         num_workers=dl_config.data_threads,
-        batch_size=dl_config.val_batch_size,
+        batch_size=dl_config.batch_size,
         sampler=val_sampler,
         shuffle=(val_sampler is None),
         pin_memory=True,

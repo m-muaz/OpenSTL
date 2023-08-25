@@ -136,7 +136,10 @@ class Base_method(object):
                                      spatial_norm=self.spatial_norm, return_log=False)
                 eval_res['loss'] = self.criterion(pred_y, batch_y).cpu().numpy()
                 for k in eval_res.keys():
-                    eval_res[k] = eval_res[k].reshape(1)
+                    if type(eval_res[k]) == list:
+                        eval_res[k] = [val.reshape(1) for val in eval_res[k]]
+                    else:
+                        eval_res[k] = eval_res[k].reshape(1)
                 results.append(eval_res)
 
             if self.args.empty_cache:
@@ -144,14 +147,23 @@ class Base_method(object):
             if self.rank == 0:
                 prog_bar.update()
 
-        # post gather tensors
         results_all = {}
         for k in results[0].keys():
-            results_cat = np.concatenate([batch[k] for batch in results], axis=0)
-            # gether tensors by GPU (it's no need to empty cache)
-            results_gathered = gather_tensors_batch(results_cat, part_size=min(part_size*8, 16))
-            results_strip = np.concatenate(results_gathered, axis=0)[:length]
-            results_all[k] = results_strip
+            if type(results[0][k]) == list:
+                results_all[k] = []
+                for i in range(len(results[0][k])):
+                    results_cat = np.concatenate([batch[k][i] for batch in results], axis=0)
+                    # gether tensors by GPU (it's no need to empty cache)
+                    results_gathered = gather_tensors_batch(results_cat, part_size=min(part_size*8, 16))
+                    results_strip = np.concatenate(results_gathered, axis=0)[:length]
+                    results_all[k].append(results_strip)
+            else:
+                results_cat = np.concatenate([batch[k] for batch in results], axis=0)
+                # gether tensors by GPU (it's no need to empty cache)
+                results_gathered = gather_tensors_batch(results_cat, part_size=min(part_size*8, 16))
+                results_strip = np.concatenate(results_gathered, axis=0)[:length]
+                results_all[k] = results_strip
+
         return results_all
 
     def _nondist_forward_collect(self, dataLoader, metric_list=None, length=None, gather_data=False, **kwargs):
@@ -212,15 +224,18 @@ class Base_method(object):
                                      spatial_norm=self.spatial_norm, return_log=False)
                 eval_res['loss'] = self.criterion(pred_y, batch_y).cpu().numpy()
                 for k in eval_res.keys():
-                    eval_res[k] = eval_res[k].reshape(1)
+                    if type(eval_res[k]) == list:
+                        eval_res[k] = [val.reshape(1) for val in eval_res[k]]
+                    else:
+                        eval_res[k] = eval_res[k].reshape(1)
                     # Add resutls to log file for tensorboard
                     if writer is not None:
-                        # check if the value is a scalar
-                        if eval_res[k].shape == (1,):
-                            writer.add_scalar(k, eval_res[k], idx)
-                        else: # if it is a list of scalars
+                        # check if it is a list of scalars
+                        if type(eval_res[k]) == list:
                             for i, val in enumerate(eval_res[k]):
                                 writer.add_scalar(f"{k}_{i}", val, idx)
+                        else:
+                            writer.add_scalar(k, eval_res[k], idx)
                 results.append(eval_res)
 
             prog_bar.update()
@@ -235,7 +250,12 @@ class Base_method(object):
         # post gather tensors"
         results_all = {}
         for k in results[0].keys():
-            results_all[k] = np.concatenate([batch[k] for batch in results], axis=0)
+            if type(results[0][k]) == list:
+                results_all[k] = []
+                for i in range(len(results[0][k])):
+                    results_all[k].append(np.concatenate([batch[k][i] for batch in results], axis=0))
+            else:
+                results_all[k] = np.concatenate([batch[k] for batch in results], axis=0)
         
         # resulting_images_all = {}
         # for key in resulting_images[0].keys():
@@ -294,10 +314,15 @@ class Base_method(object):
 
         eval_log = ""
         for k, v in metric_results.items():
-            v = v.mean()
-            if k != "loss":
-                eval_str = f"{k}:{v.mean()}" if len(eval_log) == 0 else f", {k}:{v.mean()}"
-                eval_log += eval_str
+            if type(v) == list:
+                if k != "loss":
+                    eval_str = f"{k}:{[val.mean() for val in v]}" if len(eval_log) == 0 else f", {k}:{[val.mean() for val in v]}"
+                    eval_log += eval_str
+            else:
+                v = v.mean()
+                if k != "loss":
+                    eval_str = f"{k}:{v.mean()}" if len(eval_log) == 0 else f", {k}:{v.mean()}"
+                    eval_log += eval_str
         
         return results, eval_log
 
