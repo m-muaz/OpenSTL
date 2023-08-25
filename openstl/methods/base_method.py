@@ -11,6 +11,9 @@ from openstl.core import metric
 from openstl.core.optim_scheduler import get_optim_scheduler
 from openstl.utils import gather_tensors_batch, get_dist_info, ProgressBar
 
+# Adding tensorboard support for easy visualization
+from tensorboardX import SummaryWriter
+
 has_native_amp = False
 try:
     if getattr(torch.cuda.amp, 'autocast') is not None:
@@ -91,7 +94,7 @@ class Base_method(object):
         """
         raise NotImplementedError
 
-    def _dist_forward_collect(self, data_loader, length=None, gather_data=False):
+    def _dist_forward_collect(self, data_loader, metric_list=None, length=None, gather_data=False):
         """Forward and collect predictios in a distributed manner.
 
         Args:
@@ -109,20 +112,27 @@ class Base_method(object):
             prog_bar = ProgressBar(len(data_loader))
 
         # loop
-        for idx, (batch_x, batch_y) in enumerate(data_loader):
+        for idx, (batch_x, batch_y, mean, std) in enumerate(data_loader):
             if idx == 0:
                 part_size = batch_x.shape[0]
             with torch.no_grad():
                 batch_x, batch_y = batch_x.to(self.device), batch_y.to(self.device)
                 pred_y = self._predict(batch_x, batch_y)
+            
+            data_mean, data_std = mean.cpu().numpy(), std.cpu().numpy()
+            data_mean, data_std = np.transpose(data_mean, (0, 3, 1, 2)), np.transpose(data_std, (0, 3, 1, 2))
+            data_mean, data_std = np.expand_dims(data_mean, axis=0), np.expand_dims(data_std, axis=0)
+            # data_mean = np.squeeze(mean.cpu().numpy()) 
+            # data_std = np.squeeze(std.cpu().numpy())
 
             if gather_data:  # return raw datas
                 results.append(dict(zip(['inputs', 'preds', 'trues'],
                                         [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
             else:  # return metrics
                 eval_res, _ = metric(pred_y.cpu().numpy(), batch_y.cpu().numpy(),
-                                     data_loader.dataset.mean, data_loader.dataset.std,
-                                     metrics=self.metric_list, spatial_norm=self.spatial_norm, return_log=False)
+                                     data_mean, data_std,
+                                     metrics=self.metric_list if metric_list is None else metric_list, 
+                                     spatial_norm=self.spatial_norm, return_log=False)
                 eval_res['loss'] = self.criterion(pred_y, batch_y).cpu().numpy()
                 for k in eval_res.keys():
                     eval_res[k] = eval_res[k].reshape(1)
@@ -143,7 +153,7 @@ class Base_method(object):
             results_all[k] = results_strip
         return results_all
 
-    def _nondist_forward_collect(self, data_loader, length=None, gather_data=False):
+    def _nondist_forward_collect(self, dataLoader, metric_list=None, length=None, gather_data=False, **kwargs):
         """Forward and collect predictios.
 
         Args:
@@ -155,36 +165,81 @@ class Base_method(object):
             results_all (dict(np.ndarray)): The concatenated outputs.
         """
         # preparation
+        data_loader = dataLoader
         results = []
+        resulting_images = []
         prog_bar = ProgressBar(len(data_loader))
+        # zyhe: is this variable useful?
         length = len(data_loader.dataset) if length is None else length
 
+        # New feature: Tensorboard support
+        writer = kwargs['writer'] if 'writer' in kwargs else None
+
+        # random idx to start saving images
+        rand_idx = np.random.randint(0, len(data_loader.dataset) - 1)
+        num_images = 100
+        # make sure rand_idx is num_images far from the end of the dataset
+        if rand_idx > len(data_loader.dataset) - num_images:
+            rand_idx = rand_idx - num_images
+
         # loop
-        for idx, (batch_x, batch_y) in enumerate(data_loader):
+        for idx, (batch_x, batch_y, mean, std) in enumerate(data_loader):
+            # print(f"Index {idx}")
             with torch.no_grad():
                 batch_x, batch_y = batch_x.to(self.device), batch_y.to(self.device)
                 pred_y = self._predict(batch_x, batch_y)
+                # print(f"pred_y shape: {pred_y.shape}")
+            
+            data_mean, data_std = mean.cpu().numpy(), std.cpu().numpy()
+            data_mean, data_std = np.transpose(data_mean, (0, 3, 1, 2)), np.transpose(data_std, (0, 3, 1, 2))
+            data_mean, data_std = np.expand_dims(data_mean, axis=0), np.expand_dims(data_std, axis=0)
+            # data_mean = np.squeeze(mean.cpu().numpy()) 
+            # data_std = np.squeeze(std.cpu().numpy())
 
             if gather_data:  # return raw datas
+                # print("gather data at index {}".format(idx))
                 results.append(dict(zip(['inputs', 'preds', 'trues'],
                                         [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
             else:  # return metrics
+                # if idx >= rand_idx and idx < rand_idx + num_images:
+                #     resulting_images.append(dict(zip(['inputs', 'preds', 'trues'],
+                #                                      [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
                 eval_res, _ = metric(pred_y.cpu().numpy(), batch_y.cpu().numpy(),
-                                     data_loader.dataset.mean, data_loader.dataset.std,
-                                     metrics=self.metric_list, spatial_norm=self.spatial_norm, return_log=False)
+                                     data_mean, data_std,
+                                     metrics=self.metric_list if metric_list is None else metric_list, 
+                                     spatial_norm=self.spatial_norm, return_log=False)
                 eval_res['loss'] = self.criterion(pred_y, batch_y).cpu().numpy()
                 for k in eval_res.keys():
                     eval_res[k] = eval_res[k].reshape(1)
+                    # Add resutls to log file for tensorboard
+                    if writer is not None:
+                        # check if the value is a scalar
+                        if eval_res[k].shape == (1,):
+                            writer.add_scalar(k, eval_res[k], idx)
+                        else: # if it is a list of scalars
+                            for i, val in enumerate(eval_res[k]):
+                                writer.add_scalar(f"{k}_{i}", val, idx)
                 results.append(eval_res)
 
             prog_bar.update()
             if self.args.empty_cache:
+                # print("empty cache at index {}".format(idx))
                 torch.cuda.empty_cache()
+            # print("-"*50)
 
-        # post gather tensors
+        # Saving the sampled images
+
+
+        # post gather tensors"
         results_all = {}
         for k in results[0].keys():
             results_all[k] = np.concatenate([batch[k] for batch in results], axis=0)
+        
+        # resulting_images_all = {}
+        # for key in resulting_images[0].keys():
+        #     resulting_images_all[key] = np.concatenate([batch[key] for batch in resulting_images], axis=0)
+            
+        # return (results_all, resulting_images_all)
         return results_all
 
     def vali_one_epoch(self, runner, vali_loader, **kwargs):
@@ -202,7 +257,7 @@ class Base_method(object):
         if self.dist and self.world_size > 1:
             results = self._dist_forward_collect(vali_loader, len(vali_loader.dataset), gather_data=False)
         else:
-            results = self._nondist_forward_collect(vali_loader, len(vali_loader.dataset), gather_data=False)
+            results = self._nondist_forward_collect(dataLoader=vali_loader, length=len(vali_loader.dataset), gather_data=False)
 
         eval_log = ""
         for k, v in results.items():
@@ -223,13 +278,26 @@ class Base_method(object):
         Returns:
             list(tensor, ...): The list of inputs and predictions.
         """
+        # Creating summary writer for tensorboard
+        writer = SummaryWriter(kwargs['tensorboard_logs'])
+
         self.model.eval()
         if self.dist and self.world_size > 1:
-            results = self._dist_forward_collect(test_loader, gather_data=True)
+            results = self._dist_forward_collect(test_loader, kwargs['metric_list'], gather_data=False)
         else:
-            results = self._nondist_forward_collect(test_loader, gather_data=True)
+            results = self._nondist_forward_collect(test_loader, metric_list=kwargs['metric_list'], gather_data=False, writer=writer)
 
-        return results
+        metric_results = results[0] if isinstance(results, tuple) else results
+        # metric_results = results[0] if len(results) > 1 else results
+
+        eval_log = ""
+        for k, v in metric_results.items():
+            v = v.mean()
+            if k != "loss":
+                eval_str = f"{k}:{v.mean()}" if len(eval_log) == 0 else f", {k}:{v.mean()}"
+                eval_log += eval_str
+        
+        return results, eval_log
 
     def current_lr(self) -> Union[List[float], Dict[str, List[float]]]:
         """Get current learning rates.

@@ -43,6 +43,9 @@ def create_parser():
     parser.add_argument('--local_rank', type=int, default=0)
     parser.add_argument('--port', type=int, default=29500,
                         help='port only works when launcher=="slurm"')
+    parser.add_argument('--metrics', default='none', type=str, 
+                        nargs='+', choices=['mae', 'mse', 'rmse', 'ssim', 'psnr', 'snr', 'lpips'],
+                        help='metrics options for evaluation')
 
     # dataset parameters
     parser.add_argument('--batch_size', '-b', default=16, type=int, help='Training batch size')

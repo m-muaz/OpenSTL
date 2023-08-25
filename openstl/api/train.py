@@ -345,27 +345,36 @@ class BaseExperiment(object):
         if self.args.test:
             best_model_path = osp.join(self.path, 'checkpoint.pth')
             self._load_from_state_dict(torch.load(best_model_path))
+            print("Checkpoint {} loaded".format(best_model_path))
 
+            # Add folder "logs" to save the results for tensorboard
+            tensorboard_logs = osp.join(self.path, 'logs')
+        
+            
         self.call_hook('before_val_epoch')
-        results = self.method.test_one_epoch(self, self.test_loader)
+        results, eval_log = self.method.test_one_epoch(self, self.test_loader, metric_list=self.args.metrics, tensorboard_logs=tensorboard_logs)
         self.call_hook('after_val_epoch')
 
-        if 'weather' in self.args.dataname:
-            metric_list, spatial_norm = self.args.metrics, True
-            channel_names = self.test_loader.dataset.data_name if 'mv' in self.args.dataname else None
-        else:
-            metric_list, spatial_norm, channel_names = self.args.metrics, False, None
-        eval_res, eval_log = metric(results['preds'], results['trues'],
-                                    self.test_loader.dataset.mean, self.test_loader.dataset.std,
-                                    metrics=metric_list, channel_names=channel_names, spatial_norm=spatial_norm)
-        results['metrics'] = np.array([eval_res['mae'], eval_res['mse']])
+        # if 'weather' in self.args.dataname:
+        #     metric_list, spatial_norm = self.args.metrics, True
+        #     channel_names = self.test_loader.dataset.data_name if 'mv' in self.args.dataname else None
+        # else:
+        #     metric_list, spatial_norm, channel_names = self.args.metrics, False, None
+        # eval_res, eval_log = metric(results['preds'], results['trues'],
+        #                             self.test_loader.dataset.mean, self.test_loader.dataset.std,
+        #                             metrics=metric_list, channel_names=channel_names, spatial_norm=spatial_norm)
+        # results['metrics'] = np.array([eval_res['mae'], eval_res['mse']])
+
+        # check if results is a tuple
+        metric_results = results[0] if isinstance(results, tuple) else results
+        results = results[1] if isinstance(results, tuple) else results
 
         if self._rank == 0:
             print_log(eval_log)
             folder_path = osp.join(self.path, 'saved')
             check_dir(folder_path)
-
-            for np_data in ['metrics', 'inputs', 'trues', 'preds']:
+            
+            for np_data in results.keys():
                 np.save(osp.join(folder_path, np_data + '.npy'), results[np_data])
 
-        return eval_res['mse']
+        return metric_results['mse'].mean()

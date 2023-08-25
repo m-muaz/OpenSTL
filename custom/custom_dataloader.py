@@ -4,6 +4,7 @@ warnings.filterwarnings("ignore")
 
 import os
 import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import argparse
 import numpy as np
 import torch
@@ -49,15 +50,26 @@ config.dtype = torch.cuda.FloatTensor
 # Load training and testing data
 train_data = MB(
     config,
-    train=True,
+    task='train',
     data_root=config.train_root,
+    gs_root=config.train_root,
+    audio_root=config.train_root,
 )
-test_data = MB(
+val_data = MB(
     config,
-    train=False,
+    task='val',
     data_root=config.val_root,
+    gs_root=config.val_root,
+    audio_root=config.val_root,
 )
 
+test_data = MB(
+    config,
+    task='test',
+    data_root=config.test_root,
+    gs_root=config.test_root,
+    audio_root=config.test_root,
+)
 # Creating dataloader for non-distributed training
 train_sampler = CustomStartSampler(train_data, train_data.ad_prev_len, shuffle=True)
 test_sampler = CustomStartSampler(test_data, test_data.ad_prev_len, shuffle=True)
@@ -82,29 +94,31 @@ test_loader = DataLoader(
 )
 
 val_loader = DataLoader(
-    test_data,
+    val_data,
     num_workers=config.data_threads,
     batch_size=config.val_batch_size,
-    sampler=test_sampler,
+    sampler=val_sampler,
+    shuffle=(val_sampler is None),
     pin_memory=True,
 )
 
 # print(type(train_loader))
 
-# Generate a batch of data for analysis
-# for data in train_loader:
-#     print(data.shape)
+# print([config.n_past, 3, config.image_height, config.image_width])
+# # Generate a batch of data for analysis
+# for X, Y, _, _ in train_loader:
+#     # print(data.shape)
 #     condition_frames = X
 #     future_frames = Y
 #     print("previous_frames: ", condition_frames.shape)
-#     show_video_line(
-#         condition_frames[0],
-#         ncols=config.n_past,
-#         vmax=0.6,
-#         cbar=False,
-#         out_path="condition_frames.png",
-#         format="png",
-#     )
+#     # show_video_line(
+#     #     condition_frames[0],
+#     #     ncols=config.n_past,
+#     #     vmax=0.6,
+#     #     cbar=False,
+#     #     out_path="condition_frames.png",
+#     #     format="png",
+#     # )
 #     print("future_frames: ", future_frames.shape)
 #     # yield batch, batch_small, gs_batch, ad_batch
 
@@ -114,7 +128,7 @@ model_config = model_args.__dict__
 custom_training_config = {
     'batch_size': config.batch_size,
     'val_batch_size': config.val_batch_size,
-    'in_shape': (config.n_past, 3, config.image_width, config.image_height),
+    'in_shape': (config.n_past, 3, config.image_height, config.image_width),
     'pre_seq_length': config.n_past,
     'aft_seq_length': config.n_future,
     'total_length': config.n_past + config.n_future,
@@ -139,5 +153,5 @@ torch.cuda.empty_cache()
 print(">" * 35, " Training ", "<" * 35)
 exp.train()
 
-print(">" * 35, " Testing ", "<" * 35)
-exp.test()
+# print(">" * 35, " Testing ", "<" * 35)
+# exp.test()

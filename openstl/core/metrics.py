@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import torch
 
+
 try:
     import lpips
     from skimage.metrics import structural_similarity as cal_ssim
@@ -110,7 +111,7 @@ class LPIPS(torch.nn.Module):
         return self.loss_fn.forward(img1, img2).squeeze().detach().cpu().numpy()
 
 
-def metric(pred, true, mean=None, std=None, metrics=['mae', 'mse'],
+def metric(pred, true, mean, std, metrics=['mae', 'mse'],
            clip_range=[0, 1], channel_names=None,
            spatial_norm=False, return_log=True):
     """The evaluation function to output metrics.
@@ -129,9 +130,9 @@ def metric(pred, true, mean=None, std=None, metrics=['mae', 'mse'],
     Returns:
         dict: evaluation results
     """
-    if mean is not None and std is not None:
-        pred = pred * std + mean
-        true = true * std + mean
+    pred = pred * std + mean
+    true = true * std + mean
+
     eval_res = {}
     eval_log = ""
     allowed_metrics = ['mae', 'mse', 'rmse', 'ssim', 'psnr', 'snr', 'lpips']

@@ -9,9 +9,9 @@ N_T = 3
 N_S = 6
 fp16=False
 # training
-lr = 1e-4
+lr = 1e-3
 drop_path = 0
 sched = "onecycle"
-epoch = 10
+epoch = 100
 # model checkpoint
-ex_name = f"custom_yt_data_normalized_{epoch}_epochs_SimVP_gSTA"
+ex_name = "custom_yt_data_100_epochs_SimVP_gSTA"
