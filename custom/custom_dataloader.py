@@ -23,7 +23,7 @@ class Config:
         self.__dict__.update(*args)
 
 
-def createDataloader(dl_config, model_config):
+def createDataloader(dl_config, dist=False):
     # Load training and testing data
     train_data = MB(
         dl_config,
@@ -48,7 +48,7 @@ def createDataloader(dl_config, model_config):
     )
     
     # Creating dataloader
-    if model_config.dist:
+    if dist:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_data)
         val_sampler = torch.utils.data.distributed.DistributedSampler(val_data)
         test_sampler = torch.utils.data.distributed.DistributedSampler(test_data, shuffle=False)
@@ -102,12 +102,6 @@ if __name__ == '__main__':
     # update the model config with the custom training config
     model_config = update_config(model_config, load_config("./custom/configs/SimVP_gSTA.py"))
     
-    if model_args.dist:
-        n_gpus_total = dist.get_world_size()
-        config.batch_size = int(config.batch_size / n_gpus_total)
-        config.data_threads = int((config.data_threads + n_gpus_total) / n_gpus_total)
-    else:
-        config.data_threads = 2
     
     # update the remaining model config with the custom training config
     custom_training_config = {
@@ -122,13 +116,23 @@ if __name__ == '__main__':
     
     model_config = update_config(model_config, custom_training_config)
     
-    train_loader, val_loader, test_loader = createDataloader(config, model_config)
-    
     # set multi-process settings
     # setup_multi_processes(model_config)
 
     # create the experiment object
-    exp = BaseExperiment(model_args, dataloaders=(train_loader, val_loader, test_loader))
+    exp = BaseExperiment(model_args)
+
+    if model_args.dist:
+        n_gpus_total = exp._world_size
+        config.batch_size = int(config.batch_size / n_gpus_total)
+        exp.args.batch_size = config.batch_size
+        config.data_threads = int((config.data_threads + n_gpus_total) / n_gpus_total)
+    else:
+        config.data_threads = 2
+
+    train_loader, val_loader, test_loader = createDataloader(config, model_args.dist)
+
+    exp.init_experiment(dataloaders=(train_loader, val_loader, test_loader))
 
     # clear cuda cache
     torch.cuda.empty_cache()
