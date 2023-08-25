@@ -35,7 +35,6 @@ try:
     config.dtype = torch.cuda.FloatTensor
 
     # Load testing data
-
     test_data = MB(
         config,
         task='test',
@@ -43,15 +42,14 @@ try:
         gs_root=config.test_root,
         audio_root=config.test_root,
     )
+
     # Creating dataloader for non-distributed training
     train_sampler = None
     val_sampler = None
     test_sampler = None
     config.data_threads = 2
 
-
     # Define the dataloaders using the test loaders as the train and val loaders are not used
-
     test_loader = DataLoader(
         test_data,
         num_workers=config.data_threads,
@@ -60,7 +58,6 @@ try:
         shuffle=(test_sampler is None),
         pin_memory=True,
     )
-
 
     model_args = create_parser().parse_args()
     model_config = model_args.__dict__
@@ -87,7 +84,8 @@ try:
     # setup_multi_processes(model_config)
 
     # create the experiment object
-    exp = BaseExperiment(model_args, dataloaders=(test_loader, test_loader, test_loader))
+    exp = BaseExperiment(model_args)
+    exp.init_experiment(dataloaders=(test_loader, test_loader, test_loader))
 
 
     print(">" * 35, " Testing ", "<" * 35)
@@ -104,5 +102,5 @@ try:
     # if rank == 0 and has_nni:
     #         nni.report_final_result(mse)
 except Exception as e:
-     print(">" * 35, " Testing failed with error", "<" * 35)
-     print(e)
+    print(">" * 35, " Testing failed with error", "<" * 35)
+    print(e)

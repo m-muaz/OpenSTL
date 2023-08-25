@@ -46,10 +46,7 @@ class BaseExperiment(object):
         self._dist = self.args.dist
         self._early_stop = self.args.early_stop_epoch
 
-        self._preparation(dataloaders)
-        if self._rank == 0:
-            print_log(output_namespace(self.args))
-            self.display_method_info()
+        self.init_device()
 
     def _acquire_device(self):
         """Setup devices"""
@@ -70,8 +67,8 @@ class BaseExperiment(object):
                 assert False, "Distributed training requires GPUs"
         return device
 
-    def _preparation(self, dataloaders=None):
-        """Preparation of environment and basic experiment setups"""
+    def init_device(self):
+        """Preparation of device setups"""
         if 'LOCAL_RANK' not in os.environ:
             os.environ['LOCAL_RANK'] = str(self.args.local_rank)
 
@@ -91,6 +88,14 @@ class BaseExperiment(object):
         if self._early_stop <= self._max_epochs // 5:
             self._early_stop = self._max_epochs * 2
 
+    def init_experiment(self, dataloaders=None):
+        self._preparation(dataloaders)
+        if self._rank == 0:
+            print_log(output_namespace(self.args))
+            self.display_method_info()
+
+    def _preparation(self, dataloaders=None):
+        """Preparation of environment and basic experiment setups"""
         # log and checkpoint
         base_dir = self.args.res_dir if self.args.res_dir is not None else 'work_dirs'
         self.path = osp.join(base_dir, self.args.ex_name if not self.args.ex_name.startswith(self.args.res_dir) \

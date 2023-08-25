@@ -347,6 +347,7 @@ class MB(object):
 
         input_images = np.stack([(((im.astype(float) / 255.0) - mean) / (std_dev + np.finfo(float).eps)) for im in images], axis=0)
         input_audios = np.stack([im.astype(float) for im in input_ads], axis=0)  # (seq_num, 2, num_audio_frames)
+        # input_images = np.stack([((im.astype(float) / 255.0) - mean) / std_dev for im in images], axis=0)
         # input_images = np.stack([(im.astype(float) / 255.0) for im in images], axis=0)
 
 
