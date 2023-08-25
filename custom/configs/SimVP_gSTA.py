@@ -14,4 +14,4 @@ drop_path = 0
 sched = "onecycle"
 epoch = 10
 # model checkpoint
-ex_name = f"custom_yt_data_{epoch}_epochs_SimVP_gSTA"
+ex_name = f"custom_yt_data_normalized_{epoch}_epochs_SimVP_gSTA"
