@@ -303,8 +303,8 @@ class BaseExperiment(object):
             if self._dist and hasattr(self.train_loader.sampler, 'set_epoch'):
                 self.train_loader.sampler.set_epoch(epoch)
 
-            # num_updates, loss_mean, eta = self.method.train_one_epoch(self, self.train_loader,
-            #                                                           epoch, num_updates, eta)
+            num_updates, loss_mean, eta = self.method.train_one_epoch(self, self.train_loader,
+                                                                      epoch, num_updates, eta)
 
             self._epoch = epoch
             if epoch % self.args.log_step == 0:
