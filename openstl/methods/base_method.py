@@ -166,7 +166,7 @@ class Base_method(object):
 
         return results_all
 
-    def _nondist_forward_collect(self, dataLoader, metric_list=None, length=None, gather_data=False, **kwargs):
+    def _nondist_forward_collect(self, data_loader, metric_list=None, length=None, gather_data=False, **kwargs):
         """Forward and collect predictios.
 
         Args:
@@ -178,7 +178,6 @@ class Base_method(object):
             results_all (dict(np.ndarray)): The concatenated outputs.
         """
         # preparation
-        data_loader = dataLoader
         results = []
         resulting_images = []
         prog_bar = ProgressBar(len(data_loader))
@@ -277,9 +276,9 @@ class Base_method(object):
         """
         self.model.eval()
         if self.dist and self.world_size > 1:
-            results = self._dist_forward_collect(vali_loader, len(vali_loader.dataset), gather_data=False)
+            results = self._dist_forward_collect(data_loader=vali_loader, length=len(vali_loader.dataset), gather_data=False)
         else:
-            results = self._nondist_forward_collect(dataLoader=vali_loader, length=len(vali_loader.dataset), gather_data=False)
+            results = self._nondist_forward_collect(data_loader=vali_loader, length=len(vali_loader.dataset), gather_data=False)
 
         eval_log = ""
         for k, v in results.items():
@@ -305,9 +304,9 @@ class Base_method(object):
 
         self.model.eval()
         if self.dist and self.world_size > 1:
-            results = self._dist_forward_collect(test_loader, kwargs['metric_list'], gather_data=False)
+            results = self._dist_forward_collect(data_loader=test_loader, metric_list=kwargs['metric_list'], gather_data=False)
         else:
-            results = self._nondist_forward_collect(test_loader, metric_list=kwargs['metric_list'], gather_data=False, writer=writer)
+            results = self._nondist_forward_collect(data_loader=test_loader, metric_list=kwargs['metric_list'], gather_data=False, writer=writer)
 
         metric_results = results[0] if isinstance(results, tuple) else results
         # metric_results = results[0] if len(results) > 1 else results
