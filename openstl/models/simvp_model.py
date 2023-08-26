@@ -92,11 +92,11 @@ class AudioMLP(nn.Module):
         self.T = T
         self.AC = audio_channels
         self.audio_feature = nn.Sequential(
-            nn.Linear(audio_feature, 256),
+            nn.Linear(audio_feature, self.H * self.W),
+            # self.activation,
+            # nn.Linear(256, 1024),
+            # nn.Linear(64, self.H * self.W),
             self.activation,
-            nn.Linear(256, 1024),
-            self.activation,
-            nn.Linear(1024, self.H * self.W)
         )
     def forward(self, x):
         y = self.audio_feature(x)
