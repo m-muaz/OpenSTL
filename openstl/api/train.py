@@ -246,7 +246,13 @@ class BaseExperiment(object):
             except:
                 self.method.model.load_state_dict(state_dict)
         else:
-            self.method.model.load_state_dict(state_dict)
+            new_state_dict = {}
+            for k, v in state_dict.items():
+                if "module" in k:
+                    new_state_dict[k[7:]] = v
+                else:
+                    new_state_dict[k] = v
+            self.method.model.load_state_dict(new_state_dict)
 
     def display_method_info(self):
         """Plot the basic infomation of supported methods"""

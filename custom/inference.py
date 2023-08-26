@@ -25,7 +25,7 @@ class Config:
 
 
 try:
-    args = load_dtparser().parse_args()
+    args = load_dtparser().parse_known_args()[0]
     opt = args.__dict__
 
     # Create load_config object
@@ -34,6 +34,41 @@ try:
     config = Config(config)
     config.dtype = torch.cuda.FloatTensor
 
+    model_args = create_parser().parse_args()
+    model_config = model_args.__dict__
+    
+    # update the model config with the custom training config
+    model_config = update_config(model_config, load_config("./custom/configs/SimVP_gSTA.py"))
+    
+    # set test parameter to be True
+    model_config['test'] = True
+    model_config['metrics'] = ['mae', 'mse', 'ssim', 'psnr']
+    
+    custom_training_config = {
+        'batch_size': config.batch_size,
+        'val_batch_size': config.val_batch_size,
+        'in_shape': (config.n_past, 3, config.image_width, config.image_height),
+        'pre_seq_length': config.n_past,
+        'aft_seq_length': config.n_future,
+        'total_length': config.n_past + config.n_future,
+    }
+
+    # update the remaining model config with the custom training config
+    model_config = update_config(model_config, custom_training_config)
+    
+    # set multi-process settings
+    # setup_multi_processes(model_config)
+
+    # create the experiment object
+    exp = BaseExperiment(model_args)
+    
+    if model_args.dist:
+        n_gpus_total = exp._world_size
+        config.val_batch_size = int(config.val_batch_size / n_gpus_total)
+        config.data_threads = int((config.data_threads + n_gpus_total) / n_gpus_total)
+    else:
+        config.data_threads = 2
+        
     # Load testing data
     test_data = MB(
         config,
@@ -43,11 +78,11 @@ try:
         audio_root=config.test_root,
     )
 
-    # Creating dataloader for non-distributed training
-    train_sampler = None
-    val_sampler = None
-    test_sampler = None
-    config.data_threads = 2
+    # Creating dataloader
+    if model_args.dist:
+        test_sampler = torch.utils.data.distributed.DistributedSampler(test_data, shuffle=False)
+    else:
+        test_sampler = None
 
     # Define the dataloaders using the test loaders as the train and val loaders are not used
     test_loader = DataLoader(
@@ -59,34 +94,7 @@ try:
         pin_memory=True,
     )
 
-    model_args = create_parser().parse_args()
-    model_config = model_args.__dict__
-
-    custom_training_config = {
-        'batch_size': config.batch_size,
-        'val_batch_size': config.val_batch_size,
-        'in_shape': (config.n_past, 3, config.image_width, config.image_height),
-        'pre_seq_length': config.n_past,
-        'aft_seq_length': config.n_future,
-        'total_length': config.n_past + config.n_future,
-    }
-
-    # update the model config with the custom training config
-    model_config = update_config(model_config, load_config("./custom/configs/SimVP_gSTA.py"))
-    # update the remaining model config with the custom training config
-    model_config = update_config(model_config, custom_training_config)
-
-    # set test parameter to be True
-    model_config['test'] = True
-    model_config['metrics'] = ['mae', 'mse', 'ssim', 'psnr']
-
-    # set multi-process settings
-    # setup_multi_processes(model_config)
-
-    # create the experiment object
-    exp = BaseExperiment(model_args)
     exp.init_experiment(dataloaders=(test_loader, test_loader, test_loader))
-
 
     print(">" * 35, " Testing ", "<" * 35)
     mse = exp.test()
