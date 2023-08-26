@@ -25,9 +25,14 @@ class SimVP_Model(nn.Module):
         self.enc = Encoder(C, hid_S, N_S, spatio_kernel_enc, act_inplace=act_inplace)
         # The input channel includes 2 audio channels
         self.dec = Decoder(hid_S+2, hid_S, C, N_S, spatio_kernel_dec, act_inplace=act_inplace)
-        self.ad_feat_extractor = torchaudio.pipelines.WAV2VEC2_BASE.get_model()
-        self.fc = nn.Linear(768 * 9, 64 * 64)
 
+        # Creating object for audio feature extraction
+        T_, C_, H_, W_ = in_shape
+        _, _C, _H, _W, = self.compute_enc_yshape(torch.ones(1, T_, C_, H_, W_))
+        self.ad_feat_extractor = torchaudio.pipelines.WAV2VEC2_BASE.get_model()
+        self.ad_net = AudioMLP(768*9, T, _H, _W)
+        # self.fc = nn.Linear(768 * 9, 64 * 64)
+        
         model_type = 'gsta' if model_type is None else model_type.lower()
         if model_type == 'incepu':
             self.hid = MidIncepNet(T*(hid_S+2), hid_T, N_T)
@@ -50,7 +55,9 @@ class SimVP_Model(nn.Module):
         ad_inp = ad_raw.view(B * T * AC, AF)
         ad_feats, _ = self.ad_feat_extractor.extract_features(ad_inp)
         # Only use the last audio feature
-        ad_feat = self.fc(ad_feats[-1].view(B * T * AC, -1)).view(B, T, AC, H_, W_)
+        ad_feat = self.ad_net(ad_feats[-1].view(B * T * AC, -1))
+        ad_feat = ad_feat.view(B, T, AC, H_, W_)
+        # ad_feat = self.fc(ad_feats[-1].view(B * T * AC, -1)).view(B, T, AC, H_, W_)
         
         hid = self.hid(torch.cat((z, ad_feat), 2))
         hid = hid.reshape(B*T, C_ + AC, H_, W_)
@@ -59,12 +66,41 @@ class SimVP_Model(nn.Module):
         Y = Y.reshape(B, T, C, H, W)
 
         return Y
+    
+    def compute_enc_yshape(self, in_tensor):
+        """Compute the shape of the output of the encoder"""
+        x = in_tensor
+        B, T, C, H, W = x.shape
+        x = x.view(B*T, C, H, W)
+        x,_ = self.enc(x)
+        _, C, H, W = x.shape
+        return _, C, H, W
 
 
 def sampling_generator(N, reverse=False):
     samplings = [False, True] * (N // 2)
     if reverse: return list(reversed(samplings[:N]))
     else: return samplings[:N]
+
+class AudioMLP(nn.Module):
+    """MLP network to synchronize audio with video features"""
+    def __init__(self, audio_feature, T, H, W, audio_channels=2, activation=nn.ReLU):
+        super(AudioMLP, self).__init__()
+        self.activation = activation()
+        self.H = H
+        self.W = W
+        self.T = T
+        self.AC = audio_channels
+        self.audio_feature = nn.Sequential(
+            nn.Linear(audio_feature, 256),
+            self.activation,
+            nn.Linear(256, 1024),
+            self.activation,
+            nn.Linear(1024, self.H * self.W)
+        )
+    def forward(self, x):
+        y = self.audio_feature(x)
+        return y
 
 
 class Encoder(nn.Module):

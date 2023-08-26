@@ -68,7 +68,7 @@ class MB(object):
         self.cum_sum = list(np.cumsum([0] + [el for el in self.counts]))
 
         # make dictionary to store length and dirname
-        self._len_dirname = {(len(el) - self.seq_len + 1): os.path.basename(os.path.dirname(el[0])) for el in self.ref}
+        self._len_dirname = {(len(el) - self.seq_len): os.path.basename(os.path.dirname(el[0])) for el in self.ref}
 
         # print len dir dict
         print(self._len_dirname)
