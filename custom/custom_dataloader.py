@@ -107,7 +107,7 @@ if __name__ == '__main__':
     custom_training_config = {
         'batch_size': config.batch_size,
         'val_batch_size': config.val_batch_size,
-        'in_shape': (config.n_past, 3, config.image_height, config.image_width),
+        'in_shape': (config.n_past, 3, config.image_height, config.image_width, config.ad_prev_frames, config.audio_sample_rate, config.video_frame_rate),
         'pre_seq_length': config.n_past,
         'aft_seq_length': config.n_future,
         'total_length': config.n_past + config.n_future,

@@ -19,7 +19,7 @@ class SimVP_Model(nn.Module):
                  mlp_ratio=8., drop=0.0, drop_path=0.0, spatio_kernel_enc=3,
                  spatio_kernel_dec=3, act_inplace=True, **kwargs):
         super(SimVP_Model, self).__init__()
-        T, C, H, W = in_shape  # T is pre_seq_length
+        T, C, H, W, _, _, _ = in_shape  # T is pre_seq_length
         H, W = int(H / 2**(N_S/2)), int(W / 2**(N_S/2))  # downsample 1 / 2**(N_S/2)
         act_inplace = False
         self.enc = Encoder(C, hid_S, N_S, spatio_kernel_enc, act_inplace=act_inplace)
@@ -27,10 +27,17 @@ class SimVP_Model(nn.Module):
         self.dec = Decoder(hid_S+2, hid_S, C, N_S, spatio_kernel_dec, act_inplace=act_inplace)
 
         # Creating object for audio feature extraction
-        T_, C_, H_, W_ = in_shape
+        T_, C_, H_, W_, ad_prev_frames, audio_sample_rate, video_frame_rate = in_shape
         _, _C, _H, _W, = self.compute_enc_yshape(torch.ones(1, T_, C_, H_, W_))
         self.ad_feat_extractor = torchaudio.pipelines.WAV2VEC2_BASE.get_model()
-        self.ad_net = AudioMLP(768*9, T, _H, _W)
+
+        # Compute input feature shape for AudioMLP
+        if audio_sample_rate is not None and video_frame_rate is not None:
+            audio_frame = int(audio_sample_rate * (1/video_frame_rate))
+            out = self.compute_audio_shape(torch.ones(1, T, 2, audio_frame * (ad_prev_frames + T_ + 1)))
+            self.ad_net = AudioMLP(out, T, _H, _W)
+        else:
+            self.ad_net = AudioMLP(768*9, T, _H, _W)
         # self.fc = nn.Linear(768 * 9, 64 * 64)
         
         model_type = 'gsta' if model_type is None else model_type.lower()
@@ -75,7 +82,15 @@ class SimVP_Model(nn.Module):
         x,_ = self.enc(x)
         _, C, H, W = x.shape
         return _, C, H, W
-
+    
+    def compute_audio_shape(self, in_tensor):
+        """Compute the shape of the output of the audio feature extractor"""
+        x = in_tensor
+        B, T, AC, AF = x.shape
+        x = x.view(B*T*AC, AF)
+        x,_ = self.ad_feat_extractor.extract_features(x)
+        _, F1, F2 = x[-1].shape # F1 and F2 are the feature dimensions
+        return F1*F2
 
 def sampling_generator(N, reverse=False):
     samplings = [False, True] * (N // 2)

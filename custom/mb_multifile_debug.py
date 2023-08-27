@@ -61,7 +61,7 @@ class MB(object):
         # collect, colors, motion vectors, and depth
         self.ref = self.collectFileList(data_root)
         self.ad_ref = self.collectAudioFileList(data_root)
-        self.ad_prev_len = 3
+        self.ad_prev_len = args.ad_prev_frames # previously 3 was hardcoded
 
         self.counts = [(len(el) - self.seq_len) for el in self.ref]
         self.total = np.sum(self.counts)
@@ -275,7 +275,7 @@ class MB(object):
 
     def __len__(self):
         return int(self.total)
-
+    
     def __getitem__(self, index):
         # adjust index
         index = len(self) + index if index < 0 else index
@@ -296,11 +296,17 @@ class MB(object):
 
         image_list = self.ref[dataset_index - 1]
         ad_data = self.ad_ref[dataset_index - 1][0]
+        ad_data_shape = ad_data.shape
+        # print("Shape of audio array: ", ad_data.shape)
         num_audio_frames = int(self.audio_sample_rate * (1 / self.video_frame_rate))
 
         input_video_files = [
             image_list[index + offset] for offset in range(self.seq_len)
         ]
+
+        # list to store indices
+        pre_indices = [index + offset - self.ad_prev_len for offset in range(self.seq_len)]
+        post_indices = [index + offset + 1 + self.input_length for offset in range(self.seq_len)]
         # audio data has the previous frame sequence and the current audio frame
         input_ads = [
             ad_data[
@@ -311,6 +317,9 @@ class MB(object):
             ]
             for offset in range(self.input_length)
         ]
+        # print("Printing input images shape")
+        # print([im.shape for im in input_ads])
+        input_ads_shapes = [im.shape for im in input_ads]
 
         images = [
             cv2.resize(cv2.imread(imfile), (self.crop_size[1], self.crop_size[0]))
@@ -345,8 +354,17 @@ class MB(object):
                 for im in gs
             ]
 
+        # Sanity check to make sure input_audios are stackable
+        if len(set(input_ads_shapes)) != 1:
+            print("Input source shape:", ad_data_shape)
+            print("Indices for pre and post audio frames: ", pre_indices, post_indices)
+            print("Input audio shapes are not the same")
+            print(input_ads_shapes)
+            raise ValueError("Input audio shapes are not the same")
+
         input_images = np.stack([(((im.astype(float) / 255.0) - mean) / (std_dev + np.finfo(float).eps)) for im in images], axis=0)
         input_audios = np.stack([im.astype(float) for im in input_ads], axis=0)  # (seq_num, 2, num_audio_frames)
+        # print(input_audios.shape)
         # input_images = np.stack([((im.astype(float) / 255.0) - mean) / std_dev for im in images], axis=0)
         # input_images = np.stack([(im.astype(float) / 255.0) for im in images], axis=0)
 
