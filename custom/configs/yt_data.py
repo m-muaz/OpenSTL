@@ -17,7 +17,7 @@ n_future = 2
 n_eval = 4
 
 # parameter to use previous audio features
-ad_prev_frames = 0
+ad_prev_frames = 3
 
 # save the model statistics under this folder
 model_save_path = "custom/data_stats/"

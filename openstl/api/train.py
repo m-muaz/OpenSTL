@@ -254,7 +254,7 @@ class BaseExperiment(object):
         num_ad_frames = int(self.train_loader.dataset.audio_sample_rate * (1 / self.train_loader.dataset.video_frame_rate))
         if self.args.method in ['simvp', 'tau']:
             input_dummy = torch.ones(1, self.args.pre_seq_length, C, H, W).to(self.device)
-            input_ad_dummy = torch.ones(1, self.args.pre_seq_length, 2, num_ad_frames * (self.train_loader.dataset.ad_prev_len + self.args.pre_seq_length + 1)).to(self.device)
+            input_ad_dummy = torch.ones(1, self.args.pre_seq_length, 2, num_ad_frames * (self.train_loader.dataset.ad_prev_frames + self.args.pre_seq_length + 1)).to(self.device)
         elif self.args.method == 'crevnet':
             # crevnet must use the batchsize rather than 1
             input_dummy = torch.ones(self.args.batch_size, 20, C, H, W).to(self.device)

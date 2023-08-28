@@ -57,6 +57,9 @@ def load_dtparser():
         "--audio_sample_rate", default=16000, type=int, help="audio sampling rate"
     )
     parser.add_argument(
+        "--ad_prev_frames", default=3, type=int, help="number of previous audio frames used for prediction"
+    )
+    parser.add_argument(
         "--n_past", type=int, default=5, help="number of frames to condition on"
     )
     parser.add_argument(

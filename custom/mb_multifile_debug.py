@@ -61,7 +61,7 @@ class MB(object):
         # collect, colors, motion vectors, and depth
         self.ref = self.collectFileList(data_root)
         self.ad_ref = self.collectAudioFileList(data_root)
-        self.ad_prev_len = args.ad_prev_frames # previously 3 was hardcoded
+        self.ad_prev_frames = args.ad_prev_frames # previously 3 was hardcoded
 
         self.counts = [(len(el) - self.seq_len) for el in self.ref]
         self.total = np.sum(self.counts)
@@ -289,6 +289,10 @@ class MB(object):
         # print("Dataset Index: ", dataset_index)
         # print("Dataset Len: ", dataset_len)
         
+        # Avoid negative index for selecting audio frames
+        if index < self.ad_prev_frames:
+            index = self.ad_prev_frames
+        
         dirname = self._len_dirname[dataset_len]
         mean = self.mean_dict[dirname] if dirname in self.mean_dict else 0.0
         std_dev = self.std_dict[dirname] if dirname in self.std_dict else 1.0
@@ -305,13 +309,13 @@ class MB(object):
         ]
 
         # list to store indices
-        pre_indices = [index + offset - self.ad_prev_len for offset in range(self.seq_len)]
+        pre_indices = [index + offset - self.ad_prev_frames for offset in range(self.seq_len)]
         post_indices = [index + offset + 1 + self.input_length for offset in range(self.seq_len)]
         # audio data has the previous frame sequence and the current audio frame
         input_ads = [
             ad_data[
                 :,
-                (index + offset - self.ad_prev_len)
+                (index + offset - self.ad_prev_frames)
                 * num_audio_frames : (index + self.input_length + 1 + offset)
                 * num_audio_frames,
             ]
