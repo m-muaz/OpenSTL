@@ -195,56 +195,56 @@ class Base_method(object):
             rand_idx = rand_idx - num_images
 
         # loop
-        for idx, (batch_x, batch_y, mean, std) in enumerate(data_loader):
-            # print(f"Index {idx}")
-            with torch.no_grad():
-                batch_x, batch_y = batch_x.to(self.device), batch_y.to(self.device)
-                pred_y = self._predict(batch_x, batch_y)
+        with torch.no_grad():
+            for idx, (batch_x, batch_y, mean, std) in enumerate(data_loader):
+                # print(f"Index {idx}")
+                # batch_x, batch_y = batch_x.to(self.device), batch_y.to(self.device)
+                batch_x = batch_x.to(self.device)
+                pred_y = self._predict(batch_x).cpu()
                 # print(f"pred_y shape: {pred_y.shape}")
             
-            data_mean, data_std = mean.cpu().numpy(), std.cpu().numpy()
-            if len(data_mean.shape) > 1 and len(data_std.shape) > 1:
-                data_mean, data_std = np.transpose(data_mean, (0, 3, 1, 2)), np.transpose(data_std, (0, 3, 1, 2))
-                data_mean, data_std = np.expand_dims(data_mean, axis=0), np.expand_dims(data_std, axis=0)
-                # data_mean = np.squeeze(mean.cpu().numpy()) 
-                # data_std = np.squeeze(std.cpu().numpy())
+                data_mean, data_std = mean.cpu().numpy(), std.cpu().numpy()
+                if len(data_mean.shape) > 1 and len(data_std.shape) > 1:
+                    data_mean, data_std = np.transpose(data_mean, (0, 3, 1, 2)), np.transpose(data_std, (0, 3, 1, 2))
+                    data_mean, data_std = np.expand_dims(data_mean, axis=0), np.expand_dims(data_std, axis=0)
+                    # data_mean = np.squeeze(mean.cpu().numpy()) 
+                    # data_std = np.squeeze(std.cpu().numpy())
 
-            if gather_data:  # return raw datas
-                # print("gather data at index {}".format(idx))
-                results.append(dict(zip(['inputs', 'preds', 'trues'],
-                                        [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
-            else:  # return metrics
-                # if idx >= rand_idx and idx < rand_idx + num_images:
-                #     resulting_images.append(dict(zip(['inputs', 'preds', 'trues'],
-                #                                      [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
-                eval_res, _ = metric(pred_y.cpu().numpy(), batch_y.cpu().numpy(),
-                                     data_mean, data_std,
-                                     metrics=self.metric_list if metric_list is None else metric_list, 
-                                     spatial_norm=self.spatial_norm, return_log=False)
-                eval_res['loss'] = self.criterion(pred_y, batch_y).cpu().numpy()
-                for k in eval_res.keys():
-                    if type(eval_res[k]) == list:
-                        eval_res[k] = [val.reshape(1) for val in eval_res[k]]
-                    else:
-                        eval_res[k] = eval_res[k].reshape(1)
-                    # Add resutls to log file for tensorboard
-                    if writer is not None:
-                        # check if it is a list of scalars
+                if gather_data:  # return raw datas
+                    # print("gather data at index {}".format(idx))
+                    results.append(dict(zip(['inputs', 'preds', 'trues'],
+                                            [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
+                else:  # return metrics
+                    # if idx >= rand_idx and idx < rand_idx + num_images:
+                    #     resulting_images.append(dict(zip(['inputs', 'preds', 'trues'],
+                    #                                      [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
+                    eval_res, _ = metric(pred_y.cpu().numpy(), batch_y.cpu().numpy(),
+                                        data_mean, data_std,
+                                        metrics=self.metric_list if metric_list is None else metric_list, 
+                                        spatial_norm=self.spatial_norm, return_log=False)
+                    # eval_res['loss'] = self.criterion(pred_y, batch_y).cpu().numpy()
+                    for k in eval_res.keys():
                         if type(eval_res[k]) == list:
-                            for i, val in enumerate(eval_res[k]):
-                                writer.add_scalar(f"{k}_{i}", val, idx)
+                            eval_res[k] = [val.reshape(1) for val in eval_res[k]]
                         else:
-                            writer.add_scalar(k, eval_res[k], idx)
-                results.append(eval_res)
+                            eval_res[k] = eval_res[k].reshape(1)
+                        # Add resutls to log file for tensorboard
+                        if writer is not None:
+                            # check if it is a list of scalars
+                            if type(eval_res[k]) == list:
+                                for i, val in enumerate(eval_res[k]):
+                                    writer.add_scalar(f"{k}_{i}", val, idx)
+                            else:
+                                writer.add_scalar(k, eval_res[k], idx)
+                    results.append(eval_res)
 
-            prog_bar.update()
-            if self.args.empty_cache:
-                # print("empty cache at index {}".format(idx))
-                torch.cuda.empty_cache()
-            # print("-"*50)
+                prog_bar.update()
+                if self.args.empty_cache:
+                    # print("empty cache at index {}".format(idx))
+                    torch.cuda.empty_cache()
+                # print("-"*50)
 
         # Saving the sampled images
-
 
         # post gather tensors"
         results_all = {}

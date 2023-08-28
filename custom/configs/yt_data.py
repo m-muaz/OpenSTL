@@ -12,9 +12,9 @@ image_height=544
 image_width=960
 
 # model hyperparameters
-n_past = 10
-n_future = 10
-n_eval = 20
+n_past = 2
+n_future = 2
+n_eval = 4
 
 # save the model statistics under this folder
 model_save_path = "custom/data_stats/"

@@ -41,7 +41,7 @@ def calculate_quality_baseline(test_loader):
             for k in eval_res.keys():
                 eval_res[k] = [np.array(val).reshape(1) for val in eval_res[k]]
             results.append(eval_res)
-            prog_bar.update()
+        prog_bar.update()
     
     metric_results = {}
     for k in results[0].keys():
@@ -52,9 +52,8 @@ def calculate_quality_baseline(test_loader):
 
     eval_log = ""
     for k, v in metric_results.items():
-        if k != "loss":
-            eval_str = f"{k}:{[val.mean() for val in v]}" if len(eval_log) == 0 else f", {k}:{[val.mean() for val in v]}"
-            eval_log += eval_str
+        eval_str = f"{k}:{[val.mean() for val in v]}" if len(eval_log) == 0 else f", {k}:{[val.mean() for val in v]}"
+        eval_log += eval_str
     
     return metric_results, eval_log
 
@@ -70,8 +69,8 @@ try:
     config.dtype = torch.cuda.FloatTensor
     
     config.n_past = 1
-    config.n_future = 9
-    config.n_eval = 10
+    config.n_future = 10
+    config.n_eval = 11
 
     # Load data
     test_data = MB(
@@ -93,7 +92,7 @@ try:
         batch_size=config.val_batch_size,
         sampler=test_sampler,
         shuffle=False,
-        pin_memory=True,
+        pin_memory=False,
     )
     
     model_args = create_parser().parse_args()
@@ -117,7 +116,7 @@ try:
     
     path = 'custom/data_stats'
     print_log(eval_log)
-    folder_path = osp.join(path, 'reuse_{}'.format(config.n_eval))
+    folder_path = osp.join(path, 'reuse_{}'.format(config.n_future))
     check_dir(folder_path)
     
     for np_data in metric_results.keys():
