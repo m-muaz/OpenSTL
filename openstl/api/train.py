@@ -320,6 +320,7 @@ class BaseExperiment(object):
                         epoch + 1, len(self.train_loader), cur_lr, loss_mean.avg, vali_loss))
                     early_stop = recorder(vali_loss, self.method.model, self.path)
                     self._save(name='latest')
+                
             if self._use_gpu and self.args.empty_cache:
                 torch.cuda.empty_cache()
             if epoch > self._early_stop and early_stop:  # early stop training

@@ -112,12 +112,12 @@ class Base_method(object):
             prog_bar = ProgressBar(len(data_loader))
 
         # loop
-        for idx, (batch_x, batch_y, mean, std) in enumerate(data_loader):
+        for idx, (batch_x, batch_y, batch_ad, mean, std) in enumerate(data_loader):
             if idx == 0:
                 part_size = batch_x.shape[0]
             with torch.no_grad():
-                batch_x, batch_y = batch_x.to(self.device), batch_y.to(self.device)
-                pred_y = self._predict(batch_x, batch_y)
+                batch_x, batch_y, batch_ad = batch_x.to(self.device), batch_y.to(self.device), batch_ad.to(self.device)
+                pred_y = self._predict(batch_x, batch_ad, batch_y)
             
             data_mean, data_std = mean.cpu().numpy(), std.cpu().numpy()
             if len(data_mean.shape) > 1 and len(data_std.shape) > 1:
@@ -128,7 +128,7 @@ class Base_method(object):
 
             if gather_data:  # return raw datas
                 results.append(dict(zip(['inputs', 'preds', 'trues'],
-                                        [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
+                                        [batch_x.cpu().numpy(), batch_ad.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
             else:  # return metrics
                 eval_res, _ = metric(pred_y.cpu().numpy(), batch_y.cpu().numpy(),
                                      data_mean, data_std,
@@ -195,11 +195,11 @@ class Base_method(object):
             rand_idx = rand_idx - num_images
 
         # loop
-        for idx, (batch_x, batch_y, mean, std) in enumerate(data_loader):
+        for idx, (batch_x, batch_y, batch_ad, mean, std) in enumerate(data_loader):
             # print(f"Index {idx}")
             with torch.no_grad():
-                batch_x, batch_y = batch_x.to(self.device), batch_y.to(self.device)
-                pred_y = self._predict(batch_x, batch_y)
+                batch_x, batch_y, batch_ad = batch_x.to(self.device), batch_y.to(self.device), batch_ad.to(self.device)
+                pred_y = self._predict(batch_x, batch_ad, batch_y)
                 # print(f"pred_y shape: {pred_y.shape}")
             
             data_mean, data_std = mean.cpu().numpy(), std.cpu().numpy()
@@ -212,7 +212,7 @@ class Base_method(object):
             if gather_data:  # return raw datas
                 # print("gather data at index {}".format(idx))
                 results.append(dict(zip(['inputs', 'preds', 'trues'],
-                                        [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
+                                        [batch_x.cpu().numpy(), batch_ad.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
             else:  # return metrics
                 # if idx >= rand_idx and idx < rand_idx + num_images:
                 #     resulting_images.append(dict(zip(['inputs', 'preds', 'trues'],
