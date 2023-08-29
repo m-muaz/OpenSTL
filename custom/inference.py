@@ -65,7 +65,7 @@ try:
     custom_training_config = {
         'batch_size': config.batch_size,
         'val_batch_size': config.val_batch_size,
-        'in_shape': (config.n_past, 3, config.image_width, config.image_height),
+        'in_shape': (config.n_past, 3, config.image_height, config.image_width, config.ad_prev_frames, config.audio_sample_rate, config.video_frame_rate),
         'pre_seq_length': config.n_past,
         'aft_seq_length': config.n_future,
         'total_length': config.n_past + config.n_future,
@@ -86,7 +86,6 @@ try:
     # create the experiment object
     exp = BaseExperiment(model_args)
     exp.init_experiment(dataloaders=(test_loader, test_loader, test_loader))
-
 
     print(">" * 35, " Testing ", "<" * 35)
     mse = exp.test()
