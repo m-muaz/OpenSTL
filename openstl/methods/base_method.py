@@ -181,18 +181,26 @@ class Base_method(object):
         results = []
         resulting_images = []
         prog_bar = ProgressBar(len(data_loader))
+
+        # Variables that control saving of inference results
+        save_inference = kwargs['save_inference'] if 'save_inference' in kwargs else False
+        batch_to_save = kwargs['batch_to_save'] if save_inference else None
+
         # zyhe: is this variable useful?
         length = len(data_loader.dataset) if length is None else length
 
         # New feature: Tensorboard support
         writer = kwargs['writer'] if 'writer' in kwargs else None
 
-        # random idx to start saving images
-        rand_idx = np.random.randint(0, len(data_loader.dataset) - 1)
-        num_images = 100
-        # make sure rand_idx is num_images far from the end of the dataset
-        if rand_idx > len(data_loader.dataset) - num_images:
-            rand_idx = rand_idx - num_images
+        # # random idx to start saving images
+        # rand_idx = np.random.randint(0, len(data_loader.dataset) - 1)
+        # num_batch_to_save = kwargs[]
+        # # make sure rand_idx is num_images far from the end of the dataset
+        # if rand_idx > len(data_loader.dataset) - num_images:
+        #     rand_idx = rand_idx - num_images
+
+        # randomly generate a list of indices equal to the number of batches to save
+        rand_idx = np.random.randint(0, len(data_loader.dataset) - 1, batch_to_save) if save_inference else None
 
         # loop
         with torch.no_grad():
@@ -215,6 +223,11 @@ class Base_method(object):
                     results.append(dict(zip(['inputs', 'preds', 'trues'],
                                             [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
                 else:  # return metrics
+                    # check if idx is in rand_idx list
+                    if idx in rand_idx and rand_idx is not None:
+                        resulting_images.append(dict(zip(['inputs', 'preds', 'trues'],
+                                            [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
+
                     # if idx >= rand_idx and idx < rand_idx + num_images:
                     #     resulting_images.append(dict(zip(['inputs', 'preds', 'trues'],
                     #                                      [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
@@ -256,12 +269,12 @@ class Base_method(object):
             else:
                 results_all[k] = np.concatenate([batch[k] for batch in results], axis=0)
         
-        # resulting_images_all = {}
-        # for key in resulting_images[0].keys():
-        #     resulting_images_all[key] = np.concatenate([batch[key] for batch in resulting_images], axis=0)
-            
-        # return (results_all, resulting_images_all)
-        return results_all
+        resulting_images_all = {}
+        if save_inference and resulting_images is not None:
+            for key in resulting_images[0].keys():
+                resulting_images_all[key] = np.concatenate([batch[key] for batch in resulting_images], axis=0)
+                
+        return (results_all, resulting_images_all) if save_inference and bool(resulting_images_all) else results_all
 
     def vali_one_epoch(self, runner, vali_loader, **kwargs):
         """Evaluate the model with val_loader.
@@ -306,7 +319,8 @@ class Base_method(object):
         if self.dist and self.world_size > 1:
             results = self._dist_forward_collect(data_loader=test_loader, metric_list=kwargs['metric_list'], gather_data=False)
         else:
-            results = self._nondist_forward_collect(data_loader=test_loader, metric_list=kwargs['metric_list'], gather_data=False, writer=writer)
+            results = self._nondist_forward_collect(data_loader=test_loader, metric_list=kwargs['metric_list'], gather_data=False, writer=writer,
+                                                    save_inference=kwargs['save_inference'], batch_to_save=kwargs['batch_to_save'])
 
         metric_results = results[0] if isinstance(results, tuple) else results
         # metric_results = results[0] if len(results) > 1 else results

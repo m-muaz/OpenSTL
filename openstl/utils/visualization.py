@@ -75,7 +75,8 @@ def show_video_line(data, ncols, vmax=0.6, cbar=False, format='png', out_path=No
     images = []
     if ncols == 1:
         if use_rgb:
-            im = axes.imshow(cv2.cvtColor(data[0], cv2.COLOR_BGR2RGB))
+            # im = axes.imshow(cv2.cvtColor(data[0], cv2.COLOR_RGB2BGR))
+            im = axes.imshow(data[0])
         else:
             im = axes.imshow(data[0], cmap='gray')
         images.append(im)
@@ -84,7 +85,8 @@ def show_video_line(data, ncols, vmax=0.6, cbar=False, format='png', out_path=No
     else:
         for t, ax in enumerate(axes.flat):
             if use_rgb:
-                im = ax.imshow(cv2.cvtColor(data[t], cv2.COLOR_BGR2RGB), cmap='gray')
+                # im = ax.imshow(cv2.cvtColor(data[t], cv2.COLOR_RGB2BGR), cmap='gray')
+                im = ax.imshow(data[t])
             else:
                 im = ax.imshow(data[t], cmap='gray')
             images.append(im)

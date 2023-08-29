@@ -51,6 +51,8 @@ try:
         'pre_seq_length': config.n_past,
         'aft_seq_length': config.n_future,
         'total_length': config.n_past + config.n_future,
+        'save_inference': True,
+        'batch_to_save': 20,
     }
 
     # update the remaining model config with the custom training config

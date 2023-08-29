@@ -120,4 +120,10 @@ def create_parser():
     parser.add_argument('--filter_bias_and_bn', type=bool, default=False,
                         help='LR decay rate (default: 0.1)')
 
+
+    # Testing parameters (saving inference results)
+    parser.add_argument('--save_inference', type=bool , default=False,
+                        help='Whether to save inference results (default: False)')
+    parser.add_argument('--batch_to_save', default=10, type=int,
+                        help='Number of batches to save (default: 10)')
     return parser
