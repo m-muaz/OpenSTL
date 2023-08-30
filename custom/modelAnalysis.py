@@ -52,18 +52,27 @@ for sample_idx in range(num_images):
     # sample_idx = np.random.randint(0, inputs.shape[0])
     # convert inputs, preds and trues to 0-255 range
 
-    show_video_line(inputs[sample_idx], ncols=pre_seq_length, vmax=None, cbar=True,\
+    
+    input = inputs[sample_idx]
+    pred = preds[sample_idx]
+    true = trues[sample_idx]
+
+    # input = (inputs[sample_idx] - np.min(inputs[sample_idx])) / (np.max(inputs[sample_idx]) - np.min(inputs[sample_idx]))
+    # pred = (preds[sample_idx] - np.min(preds[sample_idx])) / (np.max(preds[sample_idx]) - np.min(preds[sample_idx]))
+    # true = (trues[sample_idx] - np.min(trues[sample_idx])) / (np.max(trues[sample_idx]) - np.min(trues[sample_idx]))
+    
+    show_video_line(input, ncols=pre_seq_length, vmax=None, cbar=True,\
                     out_path= image_dir + f'/inputs_{sample_idx}.png',\
                     format='png', use_rgb=True)
 
     # displaying predicted frames
-    show_video_line(preds[sample_idx], ncols=aft_seq_length, vmax=None, cbar=True,\
+    show_video_line(pred, ncols=aft_seq_length, vmax=None, cbar=True,\
                     out_path= image_dir + f'/preds_{sample_idx}.png',\
                     format='png', use_rgb=True)
 
 
     # displaying ground truth frames
-    show_video_line(trues[sample_idx], ncols=aft_seq_length, vmax=None, cbar=True,\
+    show_video_line(true, ncols=aft_seq_length, vmax=None, cbar=True,\
                     out_path= image_dir + f'/trues_{sample_idx}.png',\
                     format='png', use_rgb=True)
 
