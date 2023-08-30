@@ -184,8 +184,8 @@ class Base_method(object):
 
         # Variables that control saving of inference results
         save_inference = kwargs['save_inference'] if 'save_inference' in kwargs else False
-        batch_to_save = kwargs['batch_to_save'] if save_inference else None
-        do_inference = kwargs['do_inference'] if 'do_inference' in kwargs else True
+        # batch_to_save = kwargs['batch_to_save'] if save_inference else None
+        # do_inference = kwargs['do_inference'] if 'do_inference' in kwargs else True
 
         # zyhe: is this variable useful?
         length = len(data_loader.dataset) if length is None else length
@@ -198,42 +198,29 @@ class Base_method(object):
             for idx, (batch_x, batch_y, mean, std) in enumerate(data_loader):
                 # print(f"Index {idx}")
                 # batch_x, batch_y = batch_x.to(self.device), batch_y.to(self.device)
-                if do_inference:
-                    batch_x = batch_x.to(self.device)
-                    pred_y = self._predict(batch_x).cpu()
-                    # print(f"pred_y shape: {pred_y.shape}")
-                
-                    data_mean, data_std = mean.cpu().numpy(), std.cpu().numpy()
-                    if len(data_mean.shape) > 1 and len(data_std.shape) > 1:
-                        data_mean, data_std = np.transpose(data_mean, (0, 3, 1, 2)), np.transpose(data_std, (0, 3, 1, 2))
-                        data_mean, data_std = np.expand_dims(data_mean, axis=0), np.expand_dims(data_std, axis=0)
-                        # data_mean = np.squeeze(mean.cpu().numpy()) 
-                        # data_std = np.squeeze(std.cpu().numpy())
+                batch_x = batch_x.to(self.device)
+                pred_y = self._predict(batch_x).cpu()
+                # print(f"pred_y shape: {pred_y.shape}")
+            
+                data_mean, data_std = mean.cpu().numpy(), std.cpu().numpy()
+                if len(data_mean.shape) > 1 and len(data_std.shape) > 1:
+                    data_mean, data_std = np.transpose(data_mean, (0, 3, 1, 2)), np.transpose(data_std, (0, 3, 1, 2))
+                    data_mean, data_std = np.expand_dims(data_mean, axis=0), np.expand_dims(data_std, axis=0)
+                    # data_mean = np.squeeze(mean.cpu().numpy()) 
+                    # data_std = np.squeeze(std.cpu().numpy())
 
-                if gather_data:  # return raw datas
-                    # print("gather data at index {}".format(idx))
-                    results.append(dict(zip(['inputs', 'preds', 'trues'],
-                                            [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
-                else:  # return metrics
-                    # check if idx is in rand_idx list
-                    if save_inference:
-                        # Only do the inference here if do inference is set to False
-                        if not do_inference:
-                            batch_x = batch_x.to(self.device)
-                            pred_y = self._predict(batch_x).cpu()
-
-                            data_mean, data_std = mean.cpu().numpy(), std.cpu().numpy()
-                            if len(data_mean.shape) > 1 and len(data_std.shape) > 1:
-                                data_mean, data_std = np.transpose(data_mean, (0, 3, 1, 2)), np.transpose(data_std, (0, 3, 1, 2))
-                                data_mean, data_std = np.expand_dims(data_mean, axis=0), np.expand_dims(data_std, axis=0)
-
-                        batch_x_save = batch_x.cpu().numpy() * data_std + data_mean
-                        pred_y_save = pred_y.cpu().numpy() * data_std + data_mean
-                        batch_y_save = batch_y.cpu().numpy() * data_std + data_mean
-                        resulting_images.append(dict(zip(['inputs', 'preds', 'trues'],
-                                            [batch_x_save, pred_y_save, batch_y_save])))
-
-                    if do_inference:
+                if save_inference:
+                    batch_x_save = batch_x.cpu().numpy() * data_std + data_mean
+                    pred_y_save = pred_y.cpu().numpy() * data_std + data_mean
+                    batch_y_save = batch_y.cpu().numpy() * data_std + data_mean
+                    resulting_images.append(dict(zip(['inputs', 'preds', 'trues'],
+                                        [batch_x_save, pred_y_save, batch_y_save])))
+                else:
+                    if gather_data:  # return raw datas
+                        # print("gather data at index {}".format(idx))
+                        results.append(dict(zip(['inputs', 'preds', 'trues'],
+                                                [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
+                    else:  # return metrics
                         eval_res, _ = metric(pred_y.cpu().numpy(), batch_y.cpu().numpy(),
                                             data_mean, data_std,
                                             metrics=self.metric_list if metric_list is None else metric_list, 
@@ -261,8 +248,9 @@ class Base_method(object):
                 # print("-"*50)
 
         # post gather tensors"
+        results_all = {}
+        resulting_images_all = {}
         if not save_inference:
-            results_all = {}
             for k in results[0].keys():
                 if type(results[0][k]) == list:
                     results_all[k] = []
@@ -270,13 +258,18 @@ class Base_method(object):
                         results_all[k].append(np.concatenate([batch[k][i] for batch in results], axis=0))
                 else:
                     results_all[k] = np.concatenate([batch[k] for batch in results], axis=0)
-            return results_all
         else:
-            resulting_images_all = {}
             if resulting_images is not None:
                 for key in resulting_images[0].keys():
                     resulting_images_all[key] = np.concatenate([batch[key] for batch in resulting_images], axis=0)
-            return (None, resulting_images_all)
+
+        # check if results_all is empty then make that variable None
+        if len(results_all) == 0:
+           results_all = None
+        if len(resulting_images_all) == 0:
+          resulting_images_all = None    
+
+        return (results_all, resulting_images_all)
 
     def vali_one_epoch(self, runner, vali_loader, **kwargs):
         """Evaluate the model with val_loader.
