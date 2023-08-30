@@ -193,10 +193,6 @@ class Base_method(object):
         # New feature: Tensorboard support
         writer = kwargs['writer'] if 'writer' in kwargs else None
 
-        # randomly generate a list of indices equal to the number of batches to save
-        rand_idx = np.sort(np.random.randint(0, len(data_loader.dataset) - 1, batch_to_save)) if save_inference else None
-        print("\nBatches to save: {}\n".format(rand_idx))
-
         # loop (to do inference on entire dataset and compute metrics)
         with torch.no_grad():
             for idx, (batch_x, batch_y, mean, std) in enumerate(data_loader):
@@ -221,24 +217,21 @@ class Base_method(object):
                 else:  # return metrics
                     # check if idx is in rand_idx list
                     if save_inference:
-                        if idx in rand_idx and rand_idx is not None:
-                            print("\nSaving inference results at index {}\n".format(idx))
+                        # Only do the inference here if do inference is set to False
+                        if not do_inference:
+                            batch_x = batch_x.to(self.device)
+                            pred_y = self._predict(batch_x).cpu()
 
-                            # Only do the inference here if do inference is set to False
-                            if not do_inference:
-                                batch_x = batch_x.to(self.device)
-                                pred_y = self._predict(batch_x).cpu()
+                            data_mean, data_std = mean.cpu().numpy(), std.cpu().numpy()
+                            if len(data_mean.shape) > 1 and len(data_std.shape) > 1:
+                                data_mean, data_std = np.transpose(data_mean, (0, 3, 1, 2)), np.transpose(data_std, (0, 3, 1, 2))
+                                data_mean, data_std = np.expand_dims(data_mean, axis=0), np.expand_dims(data_std, axis=0)
 
-                                data_mean, data_std = mean.cpu().numpy(), std.cpu().numpy()
-                                if len(data_mean.shape) > 1 and len(data_std.shape) > 1:
-                                    data_mean, data_std = np.transpose(data_mean, (0, 3, 1, 2)), np.transpose(data_std, (0, 3, 1, 2))
-                                    data_mean, data_std = np.expand_dims(data_mean, axis=0), np.expand_dims(data_std, axis=0)
-
-                            batch_x_save = batch_x.cpu().numpy() * data_std + data_mean
-                            pred_y_save = pred_y.cpu().numpy() * data_std + data_mean
-                            batch_y_save = batch_y.cpu().numpy() * data_std + data_mean
-                            resulting_images.append(dict(zip(['inputs', 'preds', 'trues'],
-                                                [batch_x_save, pred_y_save, batch_y_save])))
+                        batch_x_save = batch_x.cpu().numpy() * data_std + data_mean
+                        pred_y_save = pred_y.cpu().numpy() * data_std + data_mean
+                        batch_y_save = batch_y.cpu().numpy() * data_std + data_mean
+                        resulting_images.append(dict(zip(['inputs', 'preds', 'trues'],
+                                            [batch_x_save, pred_y_save, batch_y_save])))
 
                     if do_inference:
                         eval_res, _ = metric(pred_y.cpu().numpy(), batch_y.cpu().numpy(),
@@ -268,7 +261,7 @@ class Base_method(object):
                 # print("-"*50)
 
         # post gather tensors"
-        if do_inference:
+        if not save_inference:
             results_all = {}
             for k in results[0].keys():
                 if type(results[0][k]) == list:
@@ -277,19 +270,13 @@ class Base_method(object):
                         results_all[k].append(np.concatenate([batch[k][i] for batch in results], axis=0))
                 else:
                     results_all[k] = np.concatenate([batch[k] for batch in results], axis=0)
+            return results_all
         else:
-            results_all = None
-            
-        if save_inference:
             resulting_images_all = {}
-            if save_inference and resulting_images is not None:
+            if resulting_images is not None:
                 for key in resulting_images[0].keys():
                     resulting_images_all[key] = np.concatenate([batch[key] for batch in resulting_images], axis=0)
-        else:
-            resulting_images_all = None
-                    
-        # return (results_all, resulting_images_all) if save_inference and bool(resulting_images_all) else results_all
-        return (results_all, resulting_images_all)         
+            return (None, resulting_images_all)
 
     def vali_one_epoch(self, runner, vali_loader, **kwargs):
         """Evaluate the model with val_loader.
@@ -308,7 +295,7 @@ class Base_method(object):
         else:
             results = self._nondist_forward_collect(data_loader=vali_loader, length=len(vali_loader.dataset), gather_data=False,
                                                     save_inference=kwargs['save_inference'], batch_to_save=kwargs['batch_to_save'], do_inference=kwargs['do_inference'])
-            results = results[0] if isinstance(results, tuple) else results
+        results = results[0] if isinstance(results, tuple) else results
 
         eval_log = ""
         for k, v in results.items():

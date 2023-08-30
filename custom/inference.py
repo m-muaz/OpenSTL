@@ -10,7 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import argparse
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 
 from openstl.utils import load_config, show_video_line, create_parser, setup_multi_processes, get_dist_info
 from openstl.api import BaseExperiment
@@ -81,21 +81,35 @@ try:
         audio_root=config.test_root,
     )
 
+    rand_idx = np.sort(np.random.randint(0, len(test_data) - 1, model_args.batch_to_save)) if model_args.save_inference else None
+    
     # Creating dataloader
     if model_args.dist:
         test_sampler = torch.utils.data.distributed.DistributedSampler(test_data, shuffle=False)
     else:
         test_sampler = None
 
-    # Define the dataloaders using the test loaders as the train and val loaders are not used
-    test_loader = DataLoader(
-        test_data,
-        num_workers=config.data_threads,
-        batch_size=config.val_batch_size,
-        sampler=test_sampler,
-        shuffle=(test_sampler is None),
-        pin_memory=True,
-    )
+    if model_args.save_inference:
+        # print("\nBatches to save: {}\n".format(rand_idx))
+        subset = Subset(test_data, list(rand_idx))
+        test_loader = DataLoader(
+            subset,
+            num_workers=config.data_threads,
+            batch_size=config.val_batch_size,
+            sampler=test_sampler,
+            shuffle=False,
+            pin_memory=False,
+        )
+    else:
+        # Define the dataloaders using the test loaders as the train and val loaders are not used
+        test_loader = DataLoader(
+            test_data,
+            num_workers=config.data_threads,
+            batch_size=config.val_batch_size,
+            sampler=test_sampler,
+            shuffle=False,
+            pin_memory=False,
+        )
 
     exp.init_experiment(dataloaders=(test_loader, test_loader, test_loader))
 
