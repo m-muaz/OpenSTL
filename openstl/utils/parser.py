@@ -126,4 +126,6 @@ def create_parser():
                         help='Whether to save inference results (default: False)')
     parser.add_argument('--batch_to_save', default=10, type=int,
                         help='Number of batches to save (default: 10)')
+    parser.add_argument('--do_inference', type=bool, default=True,
+                        help='Whether to do inference and compute metrics (default: True)')
     return parser

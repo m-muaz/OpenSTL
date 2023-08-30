@@ -185,6 +185,7 @@ class Base_method(object):
         # Variables that control saving of inference results
         save_inference = kwargs['save_inference'] if 'save_inference' in kwargs else False
         batch_to_save = kwargs['batch_to_save'] if save_inference else None
+        do_inference = kwargs['do_inference'] if 'do_inference' in kwargs else True
 
         # zyhe: is this variable useful?
         length = len(data_loader.dataset) if length is None else length
@@ -192,31 +193,26 @@ class Base_method(object):
         # New feature: Tensorboard support
         writer = kwargs['writer'] if 'writer' in kwargs else None
 
-        # # random idx to start saving images
-        # rand_idx = np.random.randint(0, len(data_loader.dataset) - 1)
-        # num_batch_to_save = kwargs[]
-        # # make sure rand_idx is num_images far from the end of the dataset
-        # if rand_idx > len(data_loader.dataset) - num_images:
-        #     rand_idx = rand_idx - num_images
-
         # randomly generate a list of indices equal to the number of batches to save
-        rand_idx = np.random.randint(0, len(data_loader.dataset) - 1, batch_to_save) if save_inference else None
+        rand_idx = np.sort(np.random.randint(0, len(data_loader.dataset) - 1, batch_to_save)) if save_inference else None
+        print("\nBatches to save: {}\n".format(rand_idx))
 
-        # loop
+        # loop (to do inference on entire dataset and compute metrics)
         with torch.no_grad():
             for idx, (batch_x, batch_y, mean, std) in enumerate(data_loader):
                 # print(f"Index {idx}")
                 # batch_x, batch_y = batch_x.to(self.device), batch_y.to(self.device)
-                batch_x = batch_x.to(self.device)
-                pred_y = self._predict(batch_x).cpu()
-                # print(f"pred_y shape: {pred_y.shape}")
-            
-                data_mean, data_std = mean.cpu().numpy(), std.cpu().numpy()
-                if len(data_mean.shape) > 1 and len(data_std.shape) > 1:
-                    data_mean, data_std = np.transpose(data_mean, (0, 3, 1, 2)), np.transpose(data_std, (0, 3, 1, 2))
-                    data_mean, data_std = np.expand_dims(data_mean, axis=0), np.expand_dims(data_std, axis=0)
-                    # data_mean = np.squeeze(mean.cpu().numpy()) 
-                    # data_std = np.squeeze(std.cpu().numpy())
+                if do_inference:
+                    batch_x = batch_x.to(self.device)
+                    pred_y = self._predict(batch_x).cpu()
+                    # print(f"pred_y shape: {pred_y.shape}")
+                
+                    data_mean, data_std = mean.cpu().numpy(), std.cpu().numpy()
+                    if len(data_mean.shape) > 1 and len(data_std.shape) > 1:
+                        data_mean, data_std = np.transpose(data_mean, (0, 3, 1, 2)), np.transpose(data_std, (0, 3, 1, 2))
+                        data_mean, data_std = np.expand_dims(data_mean, axis=0), np.expand_dims(data_std, axis=0)
+                        # data_mean = np.squeeze(mean.cpu().numpy()) 
+                        # data_std = np.squeeze(std.cpu().numpy())
 
                 if gather_data:  # return raw datas
                     # print("gather data at index {}".format(idx))
@@ -224,32 +220,46 @@ class Base_method(object):
                                             [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
                 else:  # return metrics
                     # check if idx is in rand_idx list
-                    if idx in rand_idx and rand_idx is not None:
-                        resulting_images.append(dict(zip(['inputs', 'preds', 'trues'],
-                                            [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
+                    if save_inference:
+                        if idx in rand_idx and rand_idx is not None:
+                            print("\nSaving inference results at index {}\n".format(idx))
 
-                    # if idx >= rand_idx and idx < rand_idx + num_images:
-                    #     resulting_images.append(dict(zip(['inputs', 'preds', 'trues'],
-                    #                                      [batch_x.cpu().numpy(), pred_y.cpu().numpy(), batch_y.cpu().numpy()])))
-                    eval_res, _ = metric(pred_y.cpu().numpy(), batch_y.cpu().numpy(),
-                                        data_mean, data_std,
-                                        metrics=self.metric_list if metric_list is None else metric_list, 
-                                        spatial_norm=self.spatial_norm, return_log=False)
-                    # eval_res['loss'] = self.criterion(pred_y, batch_y).cpu().numpy()
-                    for k in eval_res.keys():
-                        if type(eval_res[k]) == list:
-                            eval_res[k] = [val.reshape(1) for val in eval_res[k]]
-                        else:
-                            eval_res[k] = eval_res[k].reshape(1)
-                        # Add resutls to log file for tensorboard
-                        if writer is not None:
-                            # check if it is a list of scalars
+                            # Only do the inference here if do inference is set to False
+                            if not do_inference:
+                                batch_x = batch_x.to(self.device)
+                                pred_y = self._predict(batch_x).cpu()
+
+                                data_mean, data_std = mean.cpu().numpy(), std.cpu().numpy()
+                                if len(data_mean.shape) > 1 and len(data_std.shape) > 1:
+                                    data_mean, data_std = np.transpose(data_mean, (0, 3, 1, 2)), np.transpose(data_std, (0, 3, 1, 2))
+                                    data_mean, data_std = np.expand_dims(data_mean, axis=0), np.expand_dims(data_std, axis=0)
+
+                            batch_x_save = batch_x.cpu().numpy() * data_std + data_mean
+                            pred_y_save = pred_y.cpu().numpy() * data_std + data_mean
+                            batch_y_save = batch_y.cpu().numpy() * data_std + data_mean
+                            resulting_images.append(dict(zip(['inputs', 'preds', 'trues'],
+                                                [batch_x_save, pred_y_save, batch_y_save])))
+
+                    if do_inference:
+                        eval_res, _ = metric(pred_y.cpu().numpy(), batch_y.cpu().numpy(),
+                                            data_mean, data_std,
+                                            metrics=self.metric_list if metric_list is None else metric_list, 
+                                            spatial_norm=self.spatial_norm, return_log=False)
+                        # eval_res['loss'] = self.criterion(pred_y, batch_y).cpu().numpy()
+                        for k in eval_res.keys():
                             if type(eval_res[k]) == list:
-                                for i, val in enumerate(eval_res[k]):
-                                    writer.add_scalar(f"{k}_{i}", val, idx)
+                                eval_res[k] = [val.reshape(1) for val in eval_res[k]]
                             else:
-                                writer.add_scalar(k, eval_res[k], idx)
-                    results.append(eval_res)
+                                eval_res[k] = eval_res[k].reshape(1)
+                            # Add resutls to log file for tensorboard
+                            if writer is not None:
+                                # check if it is a list of scalars
+                                if type(eval_res[k]) == list:
+                                    for i, val in enumerate(eval_res[k]):
+                                        writer.add_scalar(f"{k}_{i}", val, idx)
+                                else:
+                                    writer.add_scalar(k, eval_res[k], idx)
+                        results.append(eval_res)
 
                 prog_bar.update()
                 if self.args.empty_cache:
@@ -257,24 +267,29 @@ class Base_method(object):
                     torch.cuda.empty_cache()
                 # print("-"*50)
 
-        # Saving the sampled images
-
         # post gather tensors"
-        results_all = {}
-        for k in results[0].keys():
-            if type(results[0][k]) == list:
-                results_all[k] = []
-                for i in range(len(results[0][k])):
-                    results_all[k].append(np.concatenate([batch[k][i] for batch in results], axis=0))
-            else:
-                results_all[k] = np.concatenate([batch[k] for batch in results], axis=0)
-        
-        resulting_images_all = {}
-        if save_inference and resulting_images is not None:
-            for key in resulting_images[0].keys():
-                resulting_images_all[key] = np.concatenate([batch[key] for batch in resulting_images], axis=0)
-                
-        return (results_all, resulting_images_all) if save_inference and bool(resulting_images_all) else results_all
+        if do_inference:
+            results_all = {}
+            for k in results[0].keys():
+                if type(results[0][k]) == list:
+                    results_all[k] = []
+                    for i in range(len(results[0][k])):
+                        results_all[k].append(np.concatenate([batch[k][i] for batch in results], axis=0))
+                else:
+                    results_all[k] = np.concatenate([batch[k] for batch in results], axis=0)
+        else:
+            results_all = None
+            
+        if save_inference:
+            resulting_images_all = {}
+            if save_inference and resulting_images is not None:
+                for key in resulting_images[0].keys():
+                    resulting_images_all[key] = np.concatenate([batch[key] for batch in resulting_images], axis=0)
+        else:
+            resulting_images_all = None
+                    
+        # return (results_all, resulting_images_all) if save_inference and bool(resulting_images_all) else results_all
+        return (results_all, resulting_images_all)         
 
     def vali_one_epoch(self, runner, vali_loader, **kwargs):
         """Evaluate the model with val_loader.
@@ -291,7 +306,9 @@ class Base_method(object):
         if self.dist and self.world_size > 1:
             results = self._dist_forward_collect(data_loader=vali_loader, length=len(vali_loader.dataset), gather_data=False)
         else:
-            results = self._nondist_forward_collect(data_loader=vali_loader, length=len(vali_loader.dataset), gather_data=False)
+            results = self._nondist_forward_collect(data_loader=vali_loader, length=len(vali_loader.dataset), gather_data=False,
+                                                    save_inference=kwargs['save_inference'], batch_to_save=kwargs['batch_to_save'], do_inference=kwargs['do_inference'])
+            results = results[0] if isinstance(results, tuple) else results
 
         eval_log = ""
         for k, v in results.items():
@@ -318,25 +335,31 @@ class Base_method(object):
         self.model.eval()
         if self.dist and self.world_size > 1:
             results = self._dist_forward_collect(data_loader=test_loader, metric_list=kwargs['metric_list'], gather_data=False)
+            metric_results = results
         else:
             results = self._nondist_forward_collect(data_loader=test_loader, metric_list=kwargs['metric_list'], gather_data=False, writer=writer,
-                                                    save_inference=kwargs['save_inference'], batch_to_save=kwargs['batch_to_save'])
+                                                    save_inference=kwargs['save_inference'], batch_to_save=kwargs['batch_to_save'], do_inference=kwargs['do_inference'])
 
-        metric_results = results[0] if isinstance(results, tuple) else results
+        # metric_results = results[0] if isinstance(results, tuple) else results
+            metric_results = results[0]
         # metric_results = results[0] if len(results) > 1 else results
 
-        eval_log = ""
-        for k, v in metric_results.items():
-            if type(v) == list:
-                if k != "loss":
-                    eval_str = f"{k}:{[val.mean() for val in v]}" if len(eval_log) == 0 else f", {k}:{[val.mean() for val in v]}"
-                    eval_log += eval_str
-            else:
-                v = v.mean()
-                if k != "loss":
-                    eval_str = f"{k}:{v.mean()}" if len(eval_log) == 0 else f", {k}:{v.mean()}"
-                    eval_log += eval_str
-        
+
+        if metric_results is not None:
+            eval_log = ""
+            for k, v in metric_results.items():
+                if type(v) == list:
+                    if k != "loss":
+                        eval_str = f"{k}:{[val.mean() for val in v]}" if len(eval_log) == 0 else f", {k}:{[val.mean() for val in v]}"
+                        eval_log += eval_str
+                else:
+                    v = v.mean()
+                    if k != "loss":
+                        eval_str = f"{k}:{v.mean()}" if len(eval_log) == 0 else f", {k}:{v.mean()}"
+                        eval_log += eval_str
+        else:
+            eval_log = ""
+            
         return results, eval_log
 
     def current_lr(self) -> Union[List[float], Dict[str, List[float]]]:
