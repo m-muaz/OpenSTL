@@ -43,7 +43,7 @@ aft_seq_length = config.n_future
 
 # show the video frames for a random sample
 
-print(inputs.shape[0])
+# print(inputs.shape[0])
 # Check if the number of images are greater than 10 
 num_images = np.minimum(10, inputs.shape[0])
 
@@ -52,27 +52,43 @@ for sample_idx in range(num_images):
     # sample_idx = np.random.randint(0, inputs.shape[0])
     # convert inputs, preds and trues to 0-255 range
 
-    
+
+
+
+
     input = inputs[sample_idx]
+    input = np.clip(input, 0.0, 1.0)
+    input = (input * 255.0)
+    input = input.astype(np.uint8)
+
     pred = preds[sample_idx]
+    pred = np.clip(pred, 0.0, 1.0)
+    pred = (preds[sample_idx] * 255.0)
+    pred = pred.astype(np.uint8)
+
     true = trues[sample_idx]
+    true = np.clip(true, 0.0, 1.0)
+    true = (trues[sample_idx] * 255.0)
+    true = true.astype(np.uint8)
+
+    # print('Minimum and maximum values of inputs: ', np.min(pred), np.max(pred))
 
     # input = (inputs[sample_idx] - np.min(inputs[sample_idx])) / (np.max(inputs[sample_idx]) - np.min(inputs[sample_idx]))
     # pred = (preds[sample_idx] - np.min(preds[sample_idx])) / (np.max(preds[sample_idx]) - np.min(preds[sample_idx]))
     # true = (trues[sample_idx] - np.min(trues[sample_idx])) / (np.max(trues[sample_idx]) - np.min(trues[sample_idx]))
     
-    show_video_line(input, ncols=pre_seq_length, vmax=None, cbar=True,\
+    show_video_line(input, ncols=pre_seq_length, vmin = 0, vmax=255, cbar=False,\
                     out_path= image_dir + f'/inputs_{sample_idx}.png',\
                     format='png', use_rgb=True)
 
     # displaying predicted frames
-    show_video_line(pred, ncols=aft_seq_length, vmax=None, cbar=True,\
+    show_video_line(pred, ncols=aft_seq_length, vmin=0, vmax=255, cbar=False,\
                     out_path= image_dir + f'/preds_{sample_idx}.png',\
                     format='png', use_rgb=True)
 
 
     # displaying ground truth frames
-    show_video_line(true, ncols=aft_seq_length, vmax=None, cbar=True,\
+    show_video_line(true, ncols=aft_seq_length, vmin=0, vmax=255, cbar=False,\
                     out_path= image_dir + f'/trues_{sample_idx}.png',\
                     format='png', use_rgb=True)
 

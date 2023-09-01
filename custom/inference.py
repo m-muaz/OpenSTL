@@ -18,6 +18,8 @@ from mb_multifile_debug import MB
 from custom.utils import load_dtparser, update_config, sequence_input, normalize_data
 from openstl.utils import update_config as upd
 
+from openstl.utils import (show_video_line, show_video_gif_multiple)
+
 
 class Config:
     def __init__(self, *args):
@@ -82,6 +84,7 @@ try:
     )
 
     rand_idx = np.sort(np.random.randint(0, len(test_data) - 1, model_args.batch_to_save)) if model_args.save_inference else None
+    print("Saving batches at indices: {}".format(rand_idx))
     
     # Creating dataloader
     if model_args.dist:
@@ -111,12 +114,32 @@ try:
             pin_memory=False,
         )
 
+    
+    # # enumerate the test loader to visualize the data
+    # for idx, (batch_x, batch_y, mean_, std_) in enumerate(test_loader):
+    #     if idx == 0:
+    #         print(">" * 35, " Visualizing data ", "<" * 35)
+    #         print("Batch x shape: {}".format(batch_x.shape))
+    #         if len(mean_.shape) > 1 and len(std_.shape) > 1:
+    #                 mean_, std_ = mean_.cpu().numpy(), std_.cpu().numpy()
+    #                 data_mean, data_std = np.transpose(mean_, (0, 3, 1, 2)), np.transpose(std_, (0, 3, 1, 2))
+    #                 data_mean, data_std = np.expand_dims(data_mean, axis=0), np.expand_dims(data_std, axis=0)
+    #         print("Mean shape: {}".format(data_mean.shape))
+    #         batch_x_np = batch_y.cpu().numpy()
+    #         batch_x_np = (batch_x_np * data_std ) + data_mean
+    #         batch_x_np = batch_x_np * 255.0
+    #         batch_x_np = batch_x_np.astype(np.uint8)
+    #         # print(batch_x_np[0][0])
+    #         show_video_line(batch_x_np[0], ncols=config.n_past, vmax=None, cbar=True, format='png', use_rgb=True, out_path='./custom/batch_x.png')
+
+    #         break
+
     exp.init_experiment(dataloaders=(test_loader, test_loader, test_loader))
 
     print(">" * 35, " Testing ", "<" * 35)
     mse = exp.test()
 
-    print(">" * 35, " Testing finished ", "<" * 35)
+    # print(">" * 35, " Testing finished ", "<" * 35)
     # rank, _ = get_dist_info()
     # try:
     #     import nni
