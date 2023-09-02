@@ -23,28 +23,35 @@ class SimVP_Model(nn.Module):
         H, W = int(H / 2**(N_S/2)), int(W / 2**(N_S/2))  # downsample 1 / 2**(N_S/2)
         act_inplace = False
         self.enc = Encoder(C, hid_S, N_S, spatio_kernel_enc, act_inplace=act_inplace)
-        # The input channel includes 2 audio channels
-        self.dec = Decoder(hid_S+2, hid_S, C, N_S, spatio_kernel_dec, act_inplace=act_inplace)
-
         # Creating object for audio feature extraction
         T_, C_, H_, W_, ad_prev_frames, audio_sample_rate, video_frame_rate = in_shape
         _, _C, _H, _W, = self.compute_enc_yshape(torch.ones(1, T_, C_, H_, W_))
-        self.ad_feat_extractor = torchaudio.pipelines.WAV2VEC2_BASE.get_model()
 
-        # Compute input feature shape for AudioMLP
-        if audio_sample_rate is not None and video_frame_rate is not None:
-            audio_frame = int(audio_sample_rate * (1/video_frame_rate))
-            out = self.compute_audio_shape(torch.ones(1, T, 2, audio_frame * (ad_prev_frames + T_ + 1)))
-            self.ad_net = AudioMLP(out, T, _H, _W)
-        else:
-            self.ad_net = AudioMLP(768*9, T, _H, _W)
+        # The input channel includes 2 audio channels
+        self.dec = Decoder(hid_S+_C, hid_S, C, N_S, spatio_kernel_dec, act_inplace=act_inplace)
+
+
+        
+        # Audio-Video Baseline code for audio feature extraction
+        self.ad_net = AudioMLP(_H*_W, T, _H, _W)
+
+
+        # self.ad_feat_extractor = torchaudio.pipelines.WAV2VEC2_BASE.get_model()
+
+        # # Compute input feature shape for AudioMLP
+        # if audio_sample_rate is not None and video_frame_rate is not None:
+        #     audio_frame = int(audio_sample_rate * (1/video_frame_rate))
+        #     out = self.compute_audio_shape(torch.ones(1, T, 2, audio_frame * (ad_prev_frames + T_ + 1)))
+        #     self.ad_net = AudioMLP(out, T, _H, _W)
+        # else:
+        #     self.ad_net = AudioMLP(768*9, T, _H, _W)
         # self.fc = nn.Linear(768 * 9, 64 * 64)
         
         model_type = 'gsta' if model_type is None else model_type.lower()
         if model_type == 'incepu':
-            self.hid = MidIncepNet(T*(hid_S+2), hid_T, N_T)
+            self.hid = MidIncepNet(T*(hid_S+_C), hid_T, N_T)
         else:
-            self.hid = MidMetaNet(T*(hid_S+2), hid_T, N_T,
+            self.hid = MidMetaNet(T*(hid_S+_C), hid_T, N_T,
                 input_resolution=(H, W), model_type=model_type,
                 mlp_ratio=mlp_ratio, drop=drop, drop_path=drop_path)
 
@@ -59,15 +66,17 @@ class SimVP_Model(nn.Module):
 
         z = embed.view(B, T, C_, H_, W_)
         
-        ad_inp = ad_raw.view(B * T * AC, AF)
-        ad_feats, _ = self.ad_feat_extractor.extract_features(ad_inp)
-        # Only use the last audio feature
-        ad_feat = self.ad_net(ad_feats[-1].view(B * T * AC, -1))
-        ad_feat = ad_feat.view(B, T, AC, H_, W_)
+        # ad_inp = ad_raw.view(B * T * AC, AF)
+        # ad_feats, _ = self.ad_feat_extractor.extract_features(ad_inp)
+
+        # Replace the audio features with the output of encoder
+        ad_feats = embed.view(B * T * C_, -1)
+        ad_feat = self.ad_net(ad_feats)
+        ad_feat = ad_feat.view(B, T, C_, H_, W_)
         # ad_feat = self.fc(ad_feats[-1].view(B * T * AC, -1)).view(B, T, AC, H_, W_)
         
         hid = self.hid(torch.cat((z, ad_feat), 2))
-        hid = hid.reshape(B*T, C_ + AC, H_, W_)
+        hid = hid.reshape(B*T, C_ + C_, H_, W_)
 
         Y = self.dec(hid, skip)
         Y = Y.reshape(B, T, C, H, W)
