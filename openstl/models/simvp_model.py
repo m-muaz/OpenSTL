@@ -28,12 +28,16 @@ class SimVP_Model(nn.Module):
         _, _C, _H, _W, = self.compute_enc_yshape(torch.ones(1, T_, C_, H_, W_))
 
         # The input channel includes 2 audio channels
-        self.dec = Decoder(hid_S+_C, hid_S, C, N_S, spatio_kernel_dec, act_inplace=act_inplace)
+        self.dec = Decoder(hid_S+2, hid_S, C, N_S, spatio_kernel_dec, act_inplace=act_inplace)
 
 
         
         # Audio-Video Baseline code for audio feature extraction
         self.ad_net = AudioMLP(_H*_W, T, _H, _W)
+
+
+        # Conv layer to convert the video _C channels to 2 channels to make it consistent with the audio channels
+        self.sync_conv = ConvSC(_C, 2, act_inplace=act_inplace)
 
 
         # self.ad_feat_extractor = torchaudio.pipelines.WAV2VEC2_BASE.get_model()
@@ -49,9 +53,9 @@ class SimVP_Model(nn.Module):
         
         model_type = 'gsta' if model_type is None else model_type.lower()
         if model_type == 'incepu':
-            self.hid = MidIncepNet(T*(hid_S+_C), hid_T, N_T)
+            self.hid = MidIncepNet(T*(hid_S+2), hid_T, N_T)
         else:
-            self.hid = MidMetaNet(T*(hid_S+_C), hid_T, N_T,
+            self.hid = MidMetaNet(T*(hid_S+2), hid_T, N_T,
                 input_resolution=(H, W), model_type=model_type,
                 mlp_ratio=mlp_ratio, drop=drop, drop_path=drop_path)
 
@@ -73,10 +77,15 @@ class SimVP_Model(nn.Module):
         ad_feats = embed.view(B * T * C_, -1)
         ad_feat = self.ad_net(ad_feats)
         ad_feat = ad_feat.view(B, T, C_, H_, W_)
+
+        # pass the ad_feat through the conv_sync layer to make it consistent with the audio features
+        ad_feat = ad_feat.view(B * T, C_, H_, W_)
+        ad_feat = self.sync_conv(ad_feat)
+        ad_feat = ad_feat.view(B, T, 2, H_, W_)
         # ad_feat = self.fc(ad_feats[-1].view(B * T * AC, -1)).view(B, T, AC, H_, W_)
         
         hid = self.hid(torch.cat((z, ad_feat), 2))
-        hid = hid.reshape(B*T, C_ + C_, H_, W_)
+        hid = hid.reshape(B*T, C_ + 2, H_, W_)
 
         Y = self.dec(hid, skip)
         Y = Y.reshape(B, T, C, H, W)
