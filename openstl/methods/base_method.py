@@ -116,7 +116,7 @@ class Base_method(object):
             if idx == 0:
                 part_size = batch_x.shape[0]
             with torch.no_grad():
-                batch_x, batch_y, batch_ad = batch_x.to(self.device), batch_y.to(self.device), batch_ad.to(self.device)
+                batch_x, batch_y = batch_x.to(self.device), batch_y.to(self.device)
                 pred_y = self._predict(batch_x, batch_ad, batch_y)
             
             data_mean, data_std = mean.cpu().numpy(), std.cpu().numpy()

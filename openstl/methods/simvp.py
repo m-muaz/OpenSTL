@@ -65,7 +65,7 @@ class SimVP(Base_method):
             self.model_optim.zero_grad()
 
             if not self.args.use_prefetcher:
-                batch_x, batch_y, batch_ad = batch_x.to(self.device), batch_y.to(self.device), batch_ad.to(self.device)
+                batch_x, batch_y = batch_x.to(self.device), batch_y.to(self.device)
             runner.call_hook('before_train_iter')
 
             with self.amp_autocast():
