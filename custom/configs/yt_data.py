@@ -12,9 +12,9 @@ image_height=544
 image_width=960
 
 # model hyperparameters
-n_past = 2
-n_future = 2
-n_eval = 4
+n_past = 10
+n_future = 10
+n_eval = 20
 
 # parameter to use previous audio features
 ad_prev_frames = 0
