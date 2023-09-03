@@ -394,7 +394,7 @@ class MB(object):
         return (
             input_images_tensor[: self.input_length, :, :, :],
             input_images_tensor[self.input_length :, :, :, :],
-            None,
+            input_audios_tensor,
             mean,
             std_dev
         )
