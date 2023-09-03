@@ -287,7 +287,7 @@ class Base_method(object):
             results = self._dist_forward_collect(data_loader=vali_loader, length=len(vali_loader.dataset), gather_data=False)
         else:
             results = self._nondist_forward_collect(data_loader=vali_loader, length=len(vali_loader.dataset), gather_data=False,
-                                                    save_inference=kwargs['save_inference'], batch_to_save=kwargs['batch_to_save'], do_inference=kwargs['do_inference'])
+                                                    save_inference=kwargs['save_inference'])
         results = results[0] if isinstance(results, tuple) else results
 
         eval_log = ""
@@ -318,7 +318,7 @@ class Base_method(object):
             metric_results = results
         else:
             results = self._nondist_forward_collect(data_loader=test_loader, metric_list=kwargs['metric_list'], gather_data=False, writer=writer,
-                                                    save_inference=kwargs['save_inference'], batch_to_save=kwargs['batch_to_save'], do_inference=kwargs['do_inference'])
+                                                    save_inference=kwargs['save_inference'])
 
         # metric_results = results[0] if isinstance(results, tuple) else results
             metric_results = results[0]

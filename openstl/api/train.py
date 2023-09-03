@@ -342,8 +342,7 @@ class BaseExperiment(object):
     def vali(self):
         """A validation loop during training"""
         self.call_hook('before_val_epoch')
-        results, eval_log = self.method.vali_one_epoch(self, self.vali_loader, save_inference=self.args.save_inference,
-                                                       batch_to_save=self.args.batch_to_save, do_inference=self.args.do_inference)
+        results, eval_log = self.method.vali_one_epoch(self, self.vali_loader, save_inference=self.args.save_inference)
         self.call_hook('after_val_epoch')
 
         if self._rank == 0:

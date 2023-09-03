@@ -112,6 +112,8 @@ if __name__ == '__main__':
         'aft_seq_length': config.n_future,
         'total_length': config.n_past + config.n_future,
         'auto_resume': True,
+        'save_inference': False,
+        'batch_to_save': 20,
     }
     
     model_config = update_config(model_config, custom_training_config)
