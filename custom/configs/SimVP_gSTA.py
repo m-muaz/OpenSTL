@@ -12,7 +12,7 @@ fp16=False
 lr = 1e-4
 drop_path = 0
 sched = "onecycle"
-epoch = 1
+epoch = 10
 log_step = 1
 # model checkpoint
-ex_name = f"custom_yt_data_normalized_{epoch}_epochs_audio_baseline_SimVP_gSTA"
+ex_name = f"custom_yt_data_normalized_{epoch}_epochs_10_10_audio_baseline_SimVP_gSTA"
