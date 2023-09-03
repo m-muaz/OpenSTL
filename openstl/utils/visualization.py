@@ -64,7 +64,7 @@ def get_mpl_colormap(cmap_name):
     return color_range.reshape(256, 1, 3)
 
 
-def show_video_line(data, ncols, vmax=0.6, cbar=False, format='png', out_path=None, use_rgb=False):
+def show_video_line(data, ncols, vmin=0.0, vmax=0.6, cbar=False, format='png', out_path=None, use_rgb=False):
     """generate images with a video sequence"""
     fig, axes = plt.subplots(nrows=1, ncols=ncols, figsize=(3.25 * ncols, 3))
     plt.subplots_adjust(wspace=0.01, hspace=0)
@@ -76,20 +76,22 @@ def show_video_line(data, ncols, vmax=0.6, cbar=False, format='png', out_path=No
     if ncols == 1:
         if use_rgb:
             im = axes.imshow(cv2.cvtColor(data[0], cv2.COLOR_BGR2RGB))
+            # im = axes.imshow(data[0])
         else:
             im = axes.imshow(data[0], cmap='gray')
         images.append(im)
         axes.axis('off')
-        im.set_clim(0, vmax)
+        im.set_clim(vmin, vmax)
     else:
         for t, ax in enumerate(axes.flat):
             if use_rgb:
                 im = ax.imshow(cv2.cvtColor(data[t], cv2.COLOR_BGR2RGB), cmap='gray')
+                # im = ax.imshow(data[t], cmap='gray')
             else:
                 im = ax.imshow(data[t], cmap='gray')
             images.append(im)
             ax.axis('off')
-            im.set_clim(0, vmax)
+            im.set_clim(vmin, vmax)
 
     if cbar and ncols > 1:
         cbaxes = fig.add_axes([0.9, 0.15, 0.04 / ncols, 0.7]) 

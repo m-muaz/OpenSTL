@@ -27,30 +27,33 @@ def calculate_quality_baseline(test_loader):
     prog_bar = ProgressBar(len(test_loader))
     results = []
     for idx, (batch_x, batch_y, mean, std) in enumerate(test_loader):
-        data_mean, data_std = mean.numpy(), std.numpy()
-        if len(data_mean.shape) > 1 and len(data_std.shape) > 1:
-            data_mean, data_std = np.transpose(data_mean, (0, 3, 1, 2)), np.transpose(data_std, (0, 3, 1, 2))
-            data_mean, data_std = np.expand_dims(data_mean, axis=0), np.expand_dims(data_std, axis=0)
+        if idx % test_loader.dataset.seq_len == 0:
+            data_mean, data_std = mean.numpy(), std.numpy()
+            if len(data_mean.shape) > 1 and len(data_std.shape) > 1:
+                data_mean, data_std = np.transpose(data_mean, (0, 3, 1, 2)), np.transpose(data_std, (0, 3, 1, 2))
+                data_mean, data_std = np.expand_dims(data_mean, axis=0), np.expand_dims(data_std, axis=0)
 
-        eval_res, _ = metric(batch_x.numpy(), batch_y.numpy(),
-                            data_mean, data_std,
-                            metrics=['ssim', 'psnr'], 
-                            spatial_norm=False, return_log=False)
-        for k in eval_res.keys():
-            eval_res[k] = np.array(eval_res[k]).reshape(1)
-        results.append(eval_res)
+            duplicated_arr_x = np.repeat(batch_x.numpy(), test_loader.dataset.output_length, axis=1)
+            eval_res, _ = metric(duplicated_arr_x, batch_y.numpy(),
+                                data_mean, data_std,
+                                metrics=['ssim', 'psnr'], 
+                                spatial_norm=False, return_log=False)
+            for k in eval_res.keys():
+                eval_res[k] = [np.array(val).reshape(1) for val in eval_res[k]]
+            results.append(eval_res)
         prog_bar.update()
-        
+    
     metric_results = {}
     for k in results[0].keys():
-        metric_results[k] = np.concatenate([batch[k] for batch in results], axis=0)
+        if type(results[0][k]) == list:
+            metric_results[k] = []
+            for i in range(len(results[0][k])):
+                metric_results[k].append(np.concatenate([batch[k][i] for batch in results], axis=0))
 
     eval_log = ""
     for k, v in metric_results.items():
-        v = v.mean()
-        if k != "loss":
-            eval_str = f"{k}:{v.mean()}" if len(eval_log) == 0 else f", {k}:{v.mean()}"
-            eval_log += eval_str
+        eval_str = f"{k}:{[val.mean() for val in v]}" if len(eval_log) == 0 else f", {k}:{[val.mean() for val in v]}"
+        eval_log += eval_str
     
     return metric_results, eval_log
 
@@ -66,8 +69,8 @@ try:
     config.dtype = torch.cuda.FloatTensor
     
     config.n_past = 1
-    config.n_future = 1
-    config.n_eval = 2
+    config.n_future = 10
+    config.n_eval = 11
 
     # Load data
     test_data = MB(
@@ -88,8 +91,8 @@ try:
         num_workers=config.data_threads,
         batch_size=config.val_batch_size,
         sampler=test_sampler,
-        shuffle=(test_sampler is None),
-        pin_memory=True,
+        shuffle=False,
+        pin_memory=False,
     )
     
     model_args = create_parser().parse_args()
@@ -111,18 +114,14 @@ try:
 
     metric_results, eval_log = calculate_quality_baseline(test_loader)
     
-    base_dir = model_args.res_dir if model_args.res_dir is not None else 'work_dirs'
-    path = osp.join(base_dir, model_args.ex_name if not model_args.ex_name.startswith(model_args.res_dir) \
-            else model_args.ex_name.split(model_args.res_dir+'/')[-1])
-    
+    path = 'custom/data_stats'
     print_log(eval_log)
-    folder_path = osp.join(path, 'saved')
+    folder_path = osp.join(path, 'reuse_{}'.format(config.n_future))
     check_dir(folder_path)
     
     for np_data in metric_results.keys():
         np.save(osp.join(folder_path, np_data + '_baseline.npy'), metric_results[np_data])
         
-    
 except Exception as e:
      print(">" * 35, " Testing failed with error", "<" * 35)
      print(e)

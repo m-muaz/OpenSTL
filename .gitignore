@@ -123,6 +123,7 @@ pretrains
 
 # Pytorch
 *.pth
+*.out
 
 *.swp
 .DS_Store

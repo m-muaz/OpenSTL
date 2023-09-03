@@ -90,9 +90,9 @@ class BaseExperiment(object):
 
     def init_experiment(self, dataloaders=None):
         self._preparation(dataloaders)
-        if self._rank == 0:
-            print_log(output_namespace(self.args))
-            self.display_method_info()
+        # if self._rank == 0:
+        #     print_log(output_namespace(self.args))
+        #     self.display_method_info()
 
     def _preparation(self, dataloaders=None):
         """Preparation of environment and basic experiment setups"""
@@ -246,7 +246,13 @@ class BaseExperiment(object):
             except:
                 self.method.model.load_state_dict(state_dict)
         else:
-            self.method.model.load_state_dict(state_dict)
+            new_state_dict = {}
+            for k, v in state_dict.items():
+                if "module" in k:
+                    new_state_dict[k[7:]] = v
+                else:
+                    new_state_dict[k] = v
+            self.method.model.load_state_dict(new_state_dict)
 
     def display_method_info(self):
         """Plot the basic infomation of supported methods"""
@@ -336,7 +342,8 @@ class BaseExperiment(object):
     def vali(self):
         """A validation loop during training"""
         self.call_hook('before_val_epoch')
-        results, eval_log = self.method.vali_one_epoch(self, self.vali_loader)
+        results, eval_log = self.method.vali_one_epoch(self, self.vali_loader, save_inference=self.args.save_inference,
+                                                       batch_to_save=self.args.batch_to_save, do_inference=self.args.do_inference)
         self.call_hook('after_val_epoch')
 
         if self._rank == 0:
@@ -358,7 +365,8 @@ class BaseExperiment(object):
         
             
         self.call_hook('before_val_epoch')
-        results, eval_log = self.method.test_one_epoch(self, self.test_loader, metric_list=self.args.metrics, tensorboard_logs=tensorboard_logs)
+        results, eval_log = self.method.test_one_epoch(self, self.test_loader, metric_list=self.args.metrics, tensorboard_logs=tensorboard_logs,
+                                                       save_inference=self.args.save_inference, batch_to_save=self.args.batch_to_save, do_inference=self.args.do_inference)
         self.call_hook('after_val_epoch')
 
         # if 'weather' in self.args.dataname:
@@ -372,15 +380,19 @@ class BaseExperiment(object):
         # results['metrics'] = np.array([eval_res['mae'], eval_res['mse']])
 
         # check if results is a tuple
+        # metric_results = results[0] if isinstance(results, tuple) else results
+        # results = results[1] if isinstance(results, tuple) else results
         metric_results = results[0] if isinstance(results, tuple) else results
-        results = results[1] if isinstance(results, tuple) else results
+        results = results[1] if isinstance(results, tuple) and results[1] is not None else metric_results
+
 
         if self._rank == 0:
             print_log(eval_log)
             folder_path = osp.join(self.path, 'saved')
             check_dir(folder_path)
             
-            for np_data in results.keys():
-                np.save(osp.join(folder_path, np_data + '.npy'), results[np_data])
+            if results is not None:
+                for np_data in results.keys():
+                    np.save(osp.join(folder_path, np_data + '.npy'), results[np_data])
 
-        return metric_results['mse'].mean()
+        return metric_results['mse'].mean() if metric_results is not None else None
