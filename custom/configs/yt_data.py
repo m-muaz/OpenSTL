@@ -1,7 +1,7 @@
 # dataloaders for yt data
 dataname = "custom_yt"
 val_batch_size =  1
-batch_size = 2
+batch_size = 1
 train_root = "/home/aiscuser/AudioVideo/data/Interview/train"
 val_root = "/home/aiscuser/AudioVideo/data/Interview/val"
 test_root = "/home/aiscuser/AudioVideo/data/Interview/test"
