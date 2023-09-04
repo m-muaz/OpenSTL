@@ -365,7 +365,7 @@ class BaseExperiment(object):
             
         self.call_hook('before_val_epoch')
         results, eval_log = self.method.test_one_epoch(self, self.test_loader, metric_list=self.args.metrics, tensorboard_logs=tensorboard_logs,
-                                                       save_inference=self.args.save_inference, batch_to_save=self.args.batch_to_save, do_inference=self.args.do_inference)
+                                                       save_inference=self.args.save_inference)
         self.call_hook('after_val_epoch')
 
         # if 'weather' in self.args.dataname:

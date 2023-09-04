@@ -225,7 +225,7 @@ class Base_method(object):
                                             data_mean, data_std,
                                             metrics=self.metric_list if metric_list is None else metric_list, 
                                             spatial_norm=self.spatial_norm, return_log=False)
-                        # eval_res['loss'] = self.criterion(pred_y, batch_y).cpu().numpy()
+                        eval_res['loss'] = self.criterion(pred_y.to(self.device), batch_y.to(self.device)).cpu().numpy()
                         for k in eval_res.keys():
                             if type(eval_res[k]) == list:
                                 eval_res[k] = [val.reshape(1) for val in eval_res[k]]
