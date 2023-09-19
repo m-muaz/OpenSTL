@@ -29,7 +29,11 @@ class SimVP_Model(nn.Module):
         # Creating object for audio feature extraction
         T_, C_, H_, W_, ad_prev_frames, audio_sample_rate, video_frame_rate = in_shape
         _, _C, _H, _W, = self.compute_enc_yshape(torch.ones(1, T_, C_, H_, W_))
+
         self.ad_feat_extractor = torchaudio.pipelines.WAV2VEC2_BASE.get_model()
+        # Ensuring that the ad_feature_extractor remains in eval mode
+        for param in self.ad_feat_extractor.parameters():
+            param.requires_grad = False
 
         # Compute input feature shape for AudioMLP
         if audio_sample_rate is not None and video_frame_rate is not None:
@@ -49,28 +53,28 @@ class SimVP_Model(nn.Module):
                 mlp_ratio=mlp_ratio, drop=drop, drop_path=drop_path)
 
     def forward(self, x_raw, ad_raw, **kwargs):
-        B, T, C, H, W = x_raw.shape
-        x = x_raw.view(B*T, C, H, W)
+        B, T_x, C, H, W = x_raw.shape
+        x = x_raw.view(B*T_x, C, H, W)
         
-        B, T, AC, AF = ad_raw.shape
+        B, T_a, AC, AF = ad_raw.shape
 
         embed, skip = self.enc(x)
         _, C_, H_, W_ = embed.shape
 
-        z = embed.view(B, T, C_, H_, W_)
+        z = embed.view(B, T_x, C_, H_, W_)
         
-        ad_inp = ad_raw.view(B * T * AC, AF)
+        ad_inp = ad_raw.view(B * T_a * AC, AF)
         ad_feats, _ = self.ad_feat_extractor.extract_features(ad_inp)
         # Only use the last audio feature
-        ad_feat = self.ad_net(ad_feats[-1].view(B * T * AC, -1))
-        ad_feat = ad_feat.view(B, T, AC, H_, W_)
+        ad_feat = self.ad_net(ad_feats[-1].view(B * T_a * AC, -1))
+        ad_feat = ad_feat.view(B, T_a, AC, H_, W_)
         # ad_feat = self.fc(ad_feats[-1].view(B * T * AC, -1)).view(B, T, AC, H_, W_)
         
         hid = self.hid(torch.cat((z, ad_feat), 2))
-        hid = hid.reshape(B*T, C_ + AC, H_, W_)
+        hid = hid.reshape(B*(T_a+T_x), C_ + AC, H_, W_)
 
         Y = self.dec(hid, skip)
-        Y = Y.reshape(B, T, C, H, W)
+        Y = Y.reshape(B, (T_a+T_x), C, H, W)
 
         return Y
     

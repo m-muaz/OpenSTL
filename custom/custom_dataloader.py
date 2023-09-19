@@ -4,6 +4,7 @@ warnings.filterwarnings("ignore")
 
 import os
 import sys
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import argparse
 import numpy as np
@@ -11,7 +12,12 @@ import torch
 from torch.utils.data import DataLoader
 import torch.distributed as dist
 
-from openstl.utils import load_config, show_video_line, create_parser, setup_multi_processes
+from openstl.utils import (
+    load_config,
+    show_video_line,
+    create_parser,
+    setup_multi_processes,
+)
 from openstl.api import BaseExperiment
 from mb_multifile_debug import CustomStartSampler, MB
 from custom.utils import load_dtparser, update_config, sequence_input, normalize_data
@@ -27,36 +33,38 @@ def createDataloader(dl_config, dist=False):
     # Load training and testing data
     train_data = MB(
         dl_config,
-        task='train',
+        task="train",
         data_root=dl_config.train_root,
         gs_root=dl_config.train_root,
         audio_root=dl_config.train_root,
     )
     val_data = MB(
         dl_config,
-        task='val',
+        task="val",
         data_root=dl_config.val_root,
         gs_root=dl_config.val_root,
         audio_root=dl_config.val_root,
     )
     test_data = MB(
         dl_config,
-        task='test',
+        task="test",
         data_root=dl_config.test_root,
         gs_root=dl_config.test_root,
         audio_root=dl_config.test_root,
     )
-    
+
     # Creating dataloader
     if dist:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_data)
         val_sampler = torch.utils.data.distributed.DistributedSampler(val_data)
-        test_sampler = torch.utils.data.distributed.DistributedSampler(test_data, shuffle=False)
+        test_sampler = torch.utils.data.distributed.DistributedSampler(
+            test_data, shuffle=False
+        )
     else:
         train_sampler = None
         val_sampler = None
         test_sampler = None
-    
+
     # Define the dataloaders
     train_loader = DataLoader(
         train_data,
@@ -82,11 +90,11 @@ def createDataloader(dl_config, dist=False):
         shuffle=(test_sampler is None),
         pin_memory=True,
     )
-    
-    return train_loader, val_loader, test_loader
-    
 
-if __name__ == '__main__':
+    return train_loader, val_loader, test_loader
+
+
+if __name__ == "__main__":
     args = load_dtparser().parse_known_args()[0]
     opt = args.__dict__
 
@@ -98,24 +106,34 @@ if __name__ == '__main__':
 
     model_args = create_parser().parse_args()
     model_config = model_args.__dict__
-    
+
     # update the model config with the custom training config
-    model_config = update_config(model_config, load_config("./custom/configs/SimVP_gSTA.py"))
-    
-    
+    model_config = update_config(
+        model_config, load_config("./custom/configs/SimVP_gSTA.py")
+    )
+
     # update the remaining model config with the custom training config
     custom_training_config = {
-        'batch_size': config.batch_size,
-        'val_batch_size': config.val_batch_size,
-        'in_shape': (config.n_past, 3, config.image_height, config.image_width, config.ad_prev_frames, config.audio_sample_rate, config.video_frame_rate),
-        'pre_seq_length': config.n_past,
-        'aft_seq_length': config.n_future,
-        'total_length': config.n_past + config.n_future,
-        'auto_resume': True,
+        "batch_size": config.batch_size,
+        "val_batch_size": config.val_batch_size,
+        "in_shape": (
+            config.n_past,
+            3,  # 3 is RGB channels
+            config.image_height,
+            config.image_width,
+            config.ad_prev_frames,  # previous frames for audio (if any)
+            config.n_past + config.n_future, # number of frames for audio
+            config.audio_sample_rate,
+            config.video_frame_rate,
+        ),
+        "pre_seq_length": config.n_past,
+        "aft_seq_length": config.n_future,
+        "total_length": config.n_past + config.n_future,
+        "auto_resume": True,
     }
-    
+
     model_config = update_config(model_config, custom_training_config)
-    
+
     # set multi-process settings
     # setup_multi_processes(model_config)
 
@@ -137,10 +155,9 @@ if __name__ == '__main__':
     # clear cuda cache
     torch.cuda.empty_cache()
 
-    # run the experiment
-    print(">" * 35, " Training ", "<" * 35)
-    exp.train()
+    # # run the experiment
+    # print(">" * 35, " Training ", "<" * 35)
+    # exp.train()
 
     # print(">" * 35, " Testing ", "<" * 35)
     # exp.test()
-    
