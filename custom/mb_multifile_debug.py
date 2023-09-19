@@ -62,6 +62,7 @@ class MB(object):
         self.ref = self.collectFileList(data_root)
         self.ad_ref = self.collectAudioFileList(data_root)
         self.ad_prev_frames = args.ad_prev_frames # previously 3 was hardcoded
+        self.ad_future_frames = self.output_length # depend on how many audio frames can be obtained in the buffer
 
         self.counts = [(len(el) - self.seq_len) for el in self.ref]
         self.total = np.sum(self.counts)
@@ -316,7 +317,7 @@ class MB(object):
             ad_data[
                 :,
                 (index + offset - self.ad_prev_frames)
-                * num_audio_frames : (index + self.input_length + 1 + offset)
+                * num_audio_frames : (index + offset + self.ad_future_frames + 1)
                 * num_audio_frames,
             ]
             for offset in range(self.input_length)
