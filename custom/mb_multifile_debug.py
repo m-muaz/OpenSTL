@@ -338,15 +338,15 @@ class MB(object):
         """
         # audioSeqLen = self.input_length + self.output_length
 
-       input_ads = [
-            ad_data[
-                :,
-                (index + offset - self.ad_prev_frames)
-                * num_audio_frames : (index + offset + self.ad_future_frames + 1)
-                * num_audio_frames,
-                ]
-            for offset in range(self.input_length)
-        ]
+        input_ads = [
+                ad_data[
+                    :,
+                    (index + offset - self.ad_prev_frames)
+                    * num_audio_frames : (index + offset + self.ad_future_frames + 1)
+                    * num_audio_frames,
+                    ]
+                for offset in range(self.input_length)
+            ]
 
         # input_ads = [
         #     ad_data[

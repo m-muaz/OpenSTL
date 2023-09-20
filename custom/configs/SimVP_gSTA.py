@@ -5,7 +5,7 @@ spatio_kernel_dec = 3
 model_type = "gSTA"
 hid_S = 64
 hid_T = 256
-N_T = 6
+N_T = 3
 N_S = 6
 fp16 = False
 # training
