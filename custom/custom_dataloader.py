@@ -154,9 +154,9 @@ if __name__ == "__main__":
     # clear cuda cache
     torch.cuda.empty_cache()
 
-    # # run the experiment
-    # print(">" * 35, " Training ", "<" * 35)
-    # exp.train()
+    # run the experiment
+    print(">" * 35, " Training ", "<" * 35)
+    exp.train()
 
     # print(">" * 35, " Testing ", "<" * 35)
     # exp.test()
