@@ -94,7 +94,7 @@ class Base_method(object):
         """
         raise NotImplementedError
 
-    def _dist_forward_collect(self, data_loader, metric_list=None, length=None, gather_data=False):
+    def _dist_forward_collect(self, data_loader, metric_list=None, length=None, gather_data=False, **kwargs):
         """Forward and collect predictios in a distributed manner.
 
         Args:
@@ -110,6 +110,9 @@ class Base_method(object):
         length = len(data_loader.dataset) if length is None else length
         if self.rank == 0:
             prog_bar = ProgressBar(len(data_loader))
+        
+        # New feature: Tensorboard support
+        writer = kwargs['writer'] if 'writer' in kwargs else None
 
         # loop
         for idx, (batch_x, batch_y, batch_ad, mean, std) in enumerate(data_loader):
@@ -140,6 +143,14 @@ class Base_method(object):
                         eval_res[k] = [val.reshape(1) for val in eval_res[k]]
                     else:
                         eval_res[k] = eval_res[k].reshape(1)
+                # Add resutls to log file for tensorboard
+                    if writer is not None:
+                        # check if it is a list of scalars
+                        if type(eval_res[k]) == list:
+                            for i, val in enumerate(eval_res[k]):
+                                writer.add_scalar(f"{k}_{i}", val, idx)
+                        else:
+                            writer.add_scalar(k, eval_res[k], idx)
                 results.append(eval_res)
 
             if self.args.empty_cache:
@@ -304,7 +315,7 @@ class Base_method(object):
 
         self.model.eval()
         if self.dist and self.world_size > 1:
-            results = self._dist_forward_collect(data_loader=test_loader, metric_list=kwargs['metric_list'], gather_data=False)
+            results = self._dist_forward_collect(data_loader=test_loader, metric_list=kwargs['metric_list'], gather_data=False, writer=writer)
         else:
             results = self._nondist_forward_collect(data_loader=test_loader, metric_list=kwargs['metric_list'], gather_data=False, writer=writer)
 

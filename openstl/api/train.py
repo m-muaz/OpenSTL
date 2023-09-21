@@ -355,7 +355,10 @@ class BaseExperiment(object):
             print("Checkpoint {} loaded".format(best_model_path))
 
             # Add folder "logs" to save the results for tensorboard
-            tensorboard_logs = osp.join(self.path, 'logs')
+            if self.dist:
+                tensorboard_logs = osp.join(self.path, 'distLogs')
+            else:
+                tensorboard_logs = osp.join(self.path, 'nonDistLogs')
         
             
         self.call_hook('before_val_epoch')
