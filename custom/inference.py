@@ -143,7 +143,7 @@ if __name__ == "__main__":
 
         # set test parameter to be True
         model_config['test'] = True
-        model_config['metrics'] = ['mae', 'mse', 'ssim', 'psnr']
+        model_config['metrics'] = ['mae', 'mse', 'ssim', 'psnr', 'lpips']
 
         # set multi-process settings
         # setup_multi_processes(model_config)

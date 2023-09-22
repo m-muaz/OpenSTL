@@ -1,5 +1,7 @@
 from typing import Dict, List, Union
 import numpy as np
+import os
+import os.path as osp
 
 import torch
 from torch.nn.parallel import DistributedDataParallel as NativeDDP
@@ -311,7 +313,19 @@ class Base_method(object):
             list(tensor, ...): The list of inputs and predictions.
         """
         # Creating summary writer for tensorboard
-        writer = SummaryWriter(kwargs['tensorboard_logs'])
+        model_ckpt_path = kwargs['model_ckpt_path'] if 'model_ckpt_path' in kwargs else None
+        use_tensorboard = kwargs['use_tensorboard'] if 'use_tensorboard' in kwargs else False
+        if use_tensorboard and model_ckpt_path is not None:
+            if self.dist:
+                TB_name = osp.join(model_ckpt_path,"logDist")
+            else:
+                TB_name = osp.join(model_ckpt_path,"logNonDist")
+        
+        # do not create tensorboard for dist testing
+        if self.dist:
+            writer = None
+        else:
+            writer = SummaryWriter(TB_name)
 
         self.model.eval()
         if self.dist and self.world_size > 1:
