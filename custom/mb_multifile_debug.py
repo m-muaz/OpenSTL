@@ -243,7 +243,7 @@ class MB(object):
         # save the dictionary as a numpy file if the file does not exist under the path
         if os.path.exists(path):
             # save the dictionary as a numpy file with name dataset_statistics.npy
-            filename = os.path.join(path, f"dataset_statistics_{self.task}.npy")
+            filename = os.path.join(path, f"dataset_statistics_{self.task}_{self.crop_size[0]}_by_{self.crop_size[1]}.npy")
             print(f"Saving dataset statistics to: {filename}")
             np.save(filename, dataset_statistics)
             print(dataset_statistics)
@@ -253,7 +253,7 @@ class MB(object):
     def load_mean_std(self, path):
         os.makedirs(path, exist_ok=True)
         # Check if the file exists under the path
-        filename = os.path.join(path, f"dataset_statistics_{self.task}.npy")
+        filename = os.path.join(path, f"dataset_statistics_{self.task}_{self.crop_size[0]}_by_{self.crop_size[1]}.npy")
         if os.path.exists(filename):
             # # make self.mean and self.std a list
             # self.mean = {}

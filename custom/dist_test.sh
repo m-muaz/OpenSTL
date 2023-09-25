@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-
-set -x
+PYTHON=${PYTHON:-"python"}
 
 GPUS=$1
 PY_ARGS=${@:2}
@@ -17,4 +16,4 @@ python -m torch.distributed.launch \
     --nproc_per_node=$GPUS \
     --master_port=$PORT \
     custom/inference.py --dist \
-    --launcher="pytorch" ${PY_ARGS}
+    --seed 42 --launcher="pytorch" ${PY_ARGS}
