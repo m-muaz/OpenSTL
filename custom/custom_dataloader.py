@@ -122,6 +122,7 @@ if __name__ == "__main__":
             config.image_height,
             config.image_width,
             config.ad_prev_frames,  # previous frames for audio (if any)
+            config.n_future, # future frames for audio (if any)
             config.audio_sample_rate,
             config.video_frame_rate,
         ),

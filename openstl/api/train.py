@@ -250,7 +250,7 @@ class BaseExperiment(object):
 
     def display_method_info(self):
         """Plot the basic infomation of supported methods"""
-        T, C, H, W, _, _, _ = self.args.in_shape
+        T, C, H, W, _, _, _, _ = self.args.in_shape
         num_ad_frames = int(self.train_loader.dataset.audio_sample_rate * (1 / self.train_loader.dataset.video_frame_rate))
         if self.args.method in ['simvp', 'tau']:
             input_dummy = torch.ones(1, self.args.pre_seq_length, C, H, W).to(self.device)
@@ -293,6 +293,22 @@ class BaseExperiment(object):
         else:
             fps = ''
         print_log('Model info:\n' + info+'\n' + flops+'\n' + fps + dash_line)
+
+        # print if model layers are trainable or not
+        for name, sub_module in self.method.model.named_children():
+            print_log(f"Module: {name}")
+            self.print_trainability(sub_module, "  ")
+
+
+    
+    def print_trainability(self, model, indent=""):
+        for name, param in model.named_parameters():
+            trainable = param.requires_grad
+            print_log(f"{indent}Layer: {name}, Trainable: {trainable}")
+        
+        for name, sub_module in model.named_children():
+            print_log(f"{indent}Module: {name}")
+            self.print_trainability(sub_module, indent + "  ")
 
     def train(self):
         """Training loops of STL methods"""
