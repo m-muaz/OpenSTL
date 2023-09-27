@@ -370,7 +370,7 @@ class BaseExperiment(object):
             self._load_from_state_dict(torch.load(best_model_path))
             print("Checkpoint {} loaded".format(best_model_path))
 
-            tensorboard_logs:bool = True
+            use_tensorboard:bool = True
             # Add folder "logs" to save the results for tensorboard
             # if self.dist:
             #     tensorboard_logs = osp.join(self.path, 'distLogs')
@@ -379,7 +379,7 @@ class BaseExperiment(object):
         
             
         self.call_hook('before_val_epoch')
-        results, eval_log = self.method.test_one_epoch(self, self.test_loader, metric_list=self.args.metrics, tensorboard_logs=tensorboard_logs, model_path=self.path)
+        results, eval_log = self.method.test_one_epoch(self, self.test_loader, metric_list=self.args.metrics, use_tensorboard=use_tensorboard, model_ckpt_path=self.path)
         self.call_hook('after_val_epoch')
 
         # if 'weather' in self.args.dataname:

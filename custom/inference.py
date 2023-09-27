@@ -4,6 +4,7 @@ warnings.filterwarnings("ignore")
 
 import os
 import sys
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
@@ -12,7 +13,13 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from openstl.utils import load_config, show_video_line, create_parser, setup_multi_processes, get_dist_info
+from openstl.utils import (
+    load_config,
+    show_video_line,
+    create_parser,
+    setup_multi_processes,
+    get_dist_info,
+)
 from openstl.api import BaseExperiment
 from mb_multifile_debug import MB
 from custom.utils import load_dtparser, update_config, sequence_input, normalize_data
@@ -22,6 +29,7 @@ from openstl.utils import update_config as upd
 class Config:
     def __init__(self, *args):
         self.__dict__.update(*args)
+
 
 def createDataloader(dl_config, dist=False):
     # Load training and testing data
@@ -87,6 +95,7 @@ def createDataloader(dl_config, dist=False):
 
     return train_loader, val_loader, test_loader
 
+
 if __name__ == "__main__":
     try:
         # args = load_dtparser().parse_args()
@@ -128,22 +137,33 @@ if __name__ == "__main__":
         model_config = model_args.__dict__
 
         custom_training_config = {
-            'batch_size': config.batch_size,
-            'val_batch_size': config.val_batch_size,
-            'in_shape': (config.n_past, 3, config.image_height, config.image_width, config.ad_prev_frames, config.audio_sample_rate, config.video_frame_rate),
-            'pre_seq_length': config.n_past,
-            'aft_seq_length': config.n_future,
-            'total_length': config.n_past + config.n_future,
+            "batch_size": config.batch_size,
+            "val_batch_size": config.val_batch_size,
+            "in_shape": (
+                config.n_past,
+                3,
+                config.image_height,
+                config.image_width,
+                config.ad_prev_frames,
+                config.n_future,  # future frames for audio (if any)
+                config.audio_sample_rate,
+                config.video_frame_rate,
+            ),
+            "pre_seq_length": config.n_past,
+            "aft_seq_length": config.n_future,
+            "total_length": config.n_past + config.n_future,
         }
 
         # update the model config with the custom training config
-        model_config = update_config(model_config, load_config("./custom/configs/SimVP_gSTA.py"))
+        model_config = update_config(
+            model_config, load_config("./custom/configs/SimVP_gSTA.py")
+        )
         # update the remaining model config with the custom training config
         model_config = update_config(model_config, custom_training_config)
 
         # set test parameter to be True
-        model_config['test'] = True
-        model_config['metrics'] = ['mae', 'mse', 'ssim', 'psnr', 'lpips']
+        model_config["test"] = True
+        model_config["metrics"] = ["mae", "mse", "ssim", "psnr", "lpips"]
 
         # set multi-process settings
         # setup_multi_processes(model_config)
@@ -155,7 +175,9 @@ if __name__ == "__main__":
             n_gpus_total = exp._world_size
             config.batch_size = int(config.batch_size / n_gpus_total)
             exp.args.batch_size = config.batch_size
-            config.data_threads = int((config.data_threads + n_gpus_total) / n_gpus_total)
+            config.data_threads = int(
+                (config.data_threads + n_gpus_total) / n_gpus_total
+            )
         else:
             config.data_threads = 2
 
