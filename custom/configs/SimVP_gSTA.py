@@ -15,4 +15,4 @@ sched = "onecycle"
 epoch = 10
 log_step = 1
 # model checkpoint
-ex_name = f"custom_yt_data_normalized_{epoch}_epochs_InputOuput_2_2_audio_baseline_SimVP_gSTA"
+ex_name = f"custom_yt_data_normalized_{epoch}_epochs_InputOuput_{5}_{10}_audio_baseline_SimVP_gSTA"
