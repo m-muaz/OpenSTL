@@ -299,8 +299,6 @@ class BaseExperiment(object):
             print_log(f"Module: {name}")
             self.print_trainability(sub_module, "  ")
 
-
-    
     def print_trainability(self, model, indent=""):
         for name, param in model.named_parameters():
             trainable = param.requires_grad
