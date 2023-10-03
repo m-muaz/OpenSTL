@@ -90,9 +90,9 @@ class BaseExperiment(object):
 
     def init_experiment(self, dataloaders=None):
         self._preparation(dataloaders)
-        # if self._rank == 0:
-        #     print_log(output_namespace(self.args))
-        #     self.display_method_info()
+        if self._rank == 0:
+            print_log(output_namespace(self.args))
+            self.display_method_info()
 
     def _preparation(self, dataloaders=None):
         """Preparation of environment and basic experiment setups"""
@@ -298,6 +298,20 @@ class BaseExperiment(object):
         else:
             fps = ''
         print_log('Model info:\n' + info+'\n' + flops+'\n' + fps + dash_line)
+
+        # print if model layers are trainable or not
+        for name, sub_module in self.method.model.named_children():
+            print_log(f"Module: {name}")
+            self.print_trainability(sub_module, "  ")
+
+    def print_trainability(self, model, indent=""):
+        for name, param in model.named_parameters():
+            trainable = param.requires_grad
+            print_log(f"{indent}Layer: {name}, Trainable: {trainable}")
+        
+        for name, sub_module in model.named_children():
+            print_log(f"{indent}Module: {name}")
+            self.print_trainability(sub_module, indent + "  ")
 
     def train(self):
         """Training loops of STL methods"""

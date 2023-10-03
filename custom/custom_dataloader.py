@@ -1,6 +1,7 @@
 import warnings
-
 warnings.filterwarnings("ignore")
+
+import time
 
 import os
 import sys
@@ -71,7 +72,8 @@ def createDataloader(dl_config, dist=False):
         num_workers=dl_config.data_threads,
         batch_size=dl_config.batch_size,
         sampler=val_sampler,
-        shuffle=(val_sampler is None),
+        # shuffle=(val_sampler is None),
+        shuffle=False,  # To make sure consistent results
         pin_memory=True,
     )
     test_loader = DataLoader(
@@ -79,7 +81,8 @@ def createDataloader(dl_config, dist=False):
         num_workers=dl_config.data_threads,
         batch_size=dl_config.val_batch_size,
         sampler=test_sampler,
-        shuffle=(test_sampler is None),
+        # shuffle=(test_sampler is None),
+        shuffle=False,  # To make sure consistent results
         pin_memory=True,
     )
     
@@ -119,7 +122,7 @@ if __name__ == '__main__':
     model_config = update_config(model_config, custom_training_config)
     
     # set multi-process settings
-    # setup_multi_processes(model_config)
+    setup_multi_processes(model_config)
 
     # create the experiment object
     exp = BaseExperiment(model_args)
@@ -136,13 +139,19 @@ if __name__ == '__main__':
 
     exp.init_experiment(dataloaders=(train_loader, val_loader, test_loader))
 
+    
+    # # Measure time to load a single batch from the dataloader
+    # ts = time.time()
+    # for idx, (batch_x, batch_y, batch_ad, mean, std) in enumerate(val_loader):
+    #     t2 = time.time()
+    #     print(f"Time to load a batch: {t2 - ts}")
+    #     ts = t2
+
+
     # clear cuda cache
     torch.cuda.empty_cache()
 
     # run the experiment
     print(">" * 35, " Training ", "<" * 35)
     exp.train()
-
-    # print(">" * 35, " Testing ", "<" * 35)
-    # exp.test()
     
