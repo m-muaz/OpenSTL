@@ -13,11 +13,12 @@ image_width=256
 
 # model hyperparameters
 n_past = 5 # changed 5 -> 2
-n_future = 10 # changed 5 -> 2 
-n_eval = n_past + n_future
+n_future = 5 # changed 5 -> 2 
+n_eval = n_future
 
 # parameter to use previous audio features
 ad_prev_frames = 0
+ad_future_frames = 10
 
 # save the model statistics under this folder
 model_save_path = "custom/data_stats/"
