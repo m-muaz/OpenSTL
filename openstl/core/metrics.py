@@ -98,7 +98,7 @@ class LPIPS(torch.nn.Module):
         super().__init__()
         assert net in ['alex', 'squeeze', 'vgg']
         self.use_gpu = use_gpu and torch.cuda.is_available()
-        self.loss_fn = lpips.LPIPS(net=net)
+        self.loss_fn = lpips.LPIPS(net=net, verbose=False)
         if use_gpu:
             self.loss_fn.cuda()
 
@@ -207,7 +207,7 @@ def metric(pred, true, mean, std, metrics=['mae', 'mse'],
             eval_res['snr'].append(snr / pred.shape[0])
 
     if 'lpips' in metrics:
-        cal_lpips = LPIPS(net='alex', use_gpu=False)
+        cal_lpips = LPIPS(net='alex', use_gpu=True)
         pred = pred.transpose(0, 1, 3, 4, 2)
         true = true.transpose(0, 1, 3, 4, 2)
         eval_res['lpips'] = []

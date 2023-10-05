@@ -219,6 +219,7 @@ class Base_method(object):
             # print(f"Index {idx}")
             with torch.no_grad():
                 if idx % valSteps == 0:  # Use batch every valSteps (e.g. 10) epochs
+                    # print(f"Idx Data Loader: {idx}")
                     # print(f"Index {idx}")
                     # batch_x, batch_y = batch_x.to(self.device), batch_y.to(self.device)
                     batch_x, batch_y, batch_ad = batch_x.to(self.device), batch_y.to(self.device), batch_ad.to(self.device)
@@ -304,24 +305,29 @@ class Base_method(object):
             eval_log(str): The string of metrics.
         """
         # step to sample validation dataloader
-        valSteps = kwargs['valStep'] if 'valStep' in kwargs else 10
+        valSteps = kwargs['valSteps'] if 'valSteps' in kwargs else 10
+        metrics = kwargs['metrics'] if 'metrics' in kwargs else None
 
 
         self.model.eval()
         if self.dist and self.world_size > 1:
             results = self._dist_forward_collect(data_loader=vali_loader, length=len(vali_loader.dataset), gather_data=False,\
-                                                 valSteps=valSteps)
+                                                 valSteps=valSteps, metric_list=metrics)
         else:
             results = self._nondist_forward_collect(data_loader=vali_loader, length=len(vali_loader.dataset), gather_data=False,
-                                                    save_inference=kwargs['save_inference'], valSteps=valSteps)
+                                                    save_inference=kwargs['save_inference'], valSteps=valSteps, metric_list=metrics)
         results = results[0] if isinstance(results, tuple) else results
 
         eval_log = ""
         for k, v in results.items():
-            v = v.mean()
             if k != "loss":
-                eval_str = f"{k}:{v.mean()}" if len(eval_log) == 0 else f", {k}:{v.mean()}"
-                eval_log += eval_str
+                if isinstance(v, list):
+                    eval_str = f"{k}:{[val.mean() for val in v]}" if len(eval_log) == 0 else f", {k}:{[val.mean() for val in v]}"
+                    eval_log += eval_str
+                else:
+                    v = v.mean()
+                    eval_str = f"{k}:{v.mean()}" if len(eval_log) == 0 else f", {k}:{v.mean()}"
+                    eval_log += eval_str
 
         return results, eval_log
 
