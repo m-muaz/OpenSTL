@@ -327,8 +327,8 @@ class BaseExperiment(object):
             if self._dist and hasattr(self.train_loader.sampler, 'set_epoch'):
                 self.train_loader.sampler.set_epoch(epoch)
 
-            # num_updates, loss_mean, eta = self.method.train_one_epoch(self, self.train_loader,
-            #                                                           epoch, num_updates, eta)
+            num_updates, loss_mean, eta = self.method.train_one_epoch(self, self.train_loader,
+                                                                      epoch, num_updates, eta)
 
             self._epoch = epoch
             if epoch % self.args.log_step == 0:
@@ -360,7 +360,7 @@ class BaseExperiment(object):
         valMetrics = ['mse', 'mae', 'psnr', 'ssim', 'lpips']
         self.call_hook('before_val_epoch')
         results, eval_log = self.method.vali_one_epoch(self, self.vali_loader, save_inference=self.args.save_inference,\
-                                                       valSteps=1000, metrics=valMetrics)
+                                                       valSteps=10, metrics=valMetrics)
         self.call_hook('after_val_epoch')
         
 
