@@ -5,6 +5,7 @@ import os.path as osp
 import time
 import logging
 import json
+import csv
 import numpy as np
 from typing import Dict, List
 from fvcore.nn import FlopCountAnalysis, flop_count_table
@@ -17,12 +18,14 @@ from openstl.methods import method_maps
 from openstl.utils import (set_seed, print_log, output_namespace, check_dir, collect_env,
                            init_dist, init_random_seed,
                            get_dataset, get_dist_info, measure_throughput, weights_to_cpu)
+from custom.utils import (CsvLogger)
 
 try:
     import nni
     has_nni = True
 except ImportError: 
     has_nni = False
+
 
 
 class BaseExperiment(object):
@@ -45,6 +48,7 @@ class BaseExperiment(object):
         self._world_size = 1
         self._dist = self.args.dist
         self._early_stop = self.args.early_stop_epoch
+        self._val_logger = None
 
         self.init_device()
 
@@ -117,7 +121,10 @@ class BaseExperiment(object):
             logging.basicConfig(level=logging.INFO,
                                 filename=osp.join(self.path, '{}_{}.log'.format(prefix, timestamp)),
                                 filemode='a', format='%(asctime)s - %(message)s')
-
+            
+            # create csv logger object
+            self._val_logger = CsvLogger(osp.join(self.path, 'valLog_{}.csv'.format(timestamp)))
+            
         # log env info
         env_info_dict = collect_env()
         env_info = '\n'.join([(f'{k}: {v}') for k, v in env_info_dict.items()])
@@ -325,15 +332,15 @@ class BaseExperiment(object):
             if self._dist and hasattr(self.train_loader.sampler, 'set_epoch'):
                 self.train_loader.sampler.set_epoch(epoch)
 
-            num_updates, loss_mean, eta = self.method.train_one_epoch(self, self.train_loader,
-                                                                      epoch, num_updates, eta)
+            # num_updates, loss_mean, eta = self.method.train_one_epoch(self, self.train_loader,
+            #                                                           epoch, num_updates, eta)
 
             self._epoch = epoch
             if epoch % self.args.log_step == 0:
                 cur_lr = self.method.current_lr()
                 cur_lr = sum(cur_lr) / len(cur_lr)
                 with torch.no_grad():
-                    vali_loss = self.vali()
+                    vali_loss = self.vali(epoch=epoch)
 
                 if self._rank == 0:
                     print_log('Epoch: {0}, Steps: {1} | Lr: {2:.7f} | Train Loss: {3:.7f} | Vali Loss: {4:.7f}\n'.format(
@@ -353,16 +360,34 @@ class BaseExperiment(object):
         time.sleep(1)  # wait for some hooks like loggers to finish
         self.call_hook('after_run')
 
-    def vali(self):
+    def vali(self, epoch=None):
         """A validation loop during training"""
+        valMetrics = ['mse', 'mae', 'psnr', 'ssim', 'lpips']
         self.call_hook('before_val_epoch')
-        results, eval_log = self.method.vali_one_epoch(self, self.vali_loader, save_inference=self.args.save_inference)
+        results, eval_log = self.method.vali_one_epoch(self, self.vali_loader, save_inference=self.args.save_inference,\
+                                                       valSteps=1000, metrics=valMetrics)
         self.call_hook('after_val_epoch')
+        
 
         if self._rank == 0:
             print_log('val\t '+eval_log)
             if has_nni:
                 nni.report_intermediate_result(results['mse'].mean())
+            
+            # log the header first
+            header = ['Timestamp', 'Level']
+            results_copy = results.copy()
+            results_copy = {'epoch': epoch, **results_copy}
+            del results_copy['loss']
+            header = header + list(results_copy.keys())
+
+            # check if csv file is empty or not
+            if self._val_logger.csvEmpty():
+                self._val_logger.setHeader(header)
+            
+            # log the results (if file header exists)
+            self._val_logger.log('INFO', header, results_copy)
+             
 
         return results['loss'].mean()
 
