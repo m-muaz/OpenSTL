@@ -358,8 +358,15 @@ class BaseExperiment(object):
     def vali(self, epoch=None):
         """A validation loop during training"""
         valMetrics = ['mse', 'mae', 'psnr', 'ssim', 'lpips']
+        # check if self.args namespace contains the attribute save_inference
+        # if not, set it to False
+        if not hasattr(self.args, 'save_inference'):
+            inference = False
+        else:
+            inference = self.args.save_inference
+        
         self.call_hook('before_val_epoch')
-        results, eval_log = self.method.vali_one_epoch(self, self.vali_loader, save_inference=self.args.save_inference,\
+        results, eval_log = self.method.vali_one_epoch(self, self.vali_loader, save_inference=inference,\
                                                        valSteps=10, metrics=valMetrics)
         self.call_hook('after_val_epoch')
         
