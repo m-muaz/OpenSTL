@@ -81,7 +81,7 @@ def createDataloader(dl_config, dist=False):
         num_workers=dl_config.data_threads,
         batch_size=dl_config.batch_size,
         sampler=val_sampler,
-        shuffle=(val_sampler is None),
+        shuffle=False,
         pin_memory=True,
     )
     test_loader = DataLoader(
@@ -89,7 +89,7 @@ def createDataloader(dl_config, dist=False):
         num_workers=dl_config.data_threads,
         batch_size=dl_config.val_batch_size,
         sampler=test_sampler,
-        shuffle=(test_sampler is None),
+        shuffle=False,
         pin_memory=True,
     )
 
@@ -145,7 +145,7 @@ if __name__ == "__main__":
                 config.image_height,
                 config.image_width,
                 config.ad_prev_frames,
-                config.n_future,  # future frames for audio (if any)
+                config.ad_future_frames,  # future frames for audio (if any)
                 config.audio_sample_rate,
                 config.video_frame_rate,
             ),
@@ -184,6 +184,7 @@ if __name__ == "__main__":
         _, _, test_loader = createDataloader(config, model_args.dist)
         exp.init_experiment(dataloaders=(test_loader, test_loader, test_loader))
 
+        torch.cuda.empty_cache()
         print(">" * 35, " Testing ", "<" * 35)
         mse = exp.test()
 

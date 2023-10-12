@@ -400,7 +400,24 @@ class MB(object):
             print("Indices for pre and post audio frames: ", pre_indices, post_indices)
             print("Input audio shapes are not the same")
             print(input_ads_shapes)
-            raise ValueError("Input audio shapes are not the same")
+            # raise ValueError("Input audio shapes are not the same")
+            # expected number of audio frames
+            requiredFrames= ( self.ad_future_frames + 1 ) * num_audio_frames
+            # traverse the list input_ads and if the shape is not equal to the expected shape, pad the array or truncate the array
+            for idx, ad in enumerate(input_ads):
+                if ad.shape[1] != requiredFrames:
+                    if ad.shape[1] > requiredFrames:
+                        # truncate the array
+                        input_ads[idx] = ad[:, :requiredFrames]
+                    else:
+                        # pad the array along the second dimension
+                        input_ads[idx] = list(np.pad(ad, ((0, 0), (0, requiredFrames - ad.shape[1])), "reflect"))
+            
+            # print that the input_ads are modified and the issue is fixed
+            print("Input audio shapes are modified to be the same")
+            
+
+            
 
         input_images = np.stack(
             [
