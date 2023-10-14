@@ -27,7 +27,7 @@ def create_parser():
                         help='Whether to measure inference speed (FPS)')
     parser.add_argument('--empty_cache', action='store_true', default=True,
                         help='Whether to empty cuda cache after GPU training')
-    parser.add_argument('--find_unused_parameters', action='store_true', default=False,
+    parser.add_argument('--find_unused_parameters', action='store_true', default=True,
                         help='Whether to find unused parameters in forward during DDP training')
     parser.add_argument('--broadcast_buffers', action='store_false', default=True,
                         help='Whether to set broadcast_buffers to false during DDP training')
