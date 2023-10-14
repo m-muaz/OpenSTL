@@ -7,12 +7,12 @@ hid_S = 64
 hid_T = 256
 N_T = 3
 N_S = 6
-fp16=False
+fp16 = False
 # training
-lr = 1e-4
+lr = 8e-4
 drop_path = 0
 sched = "onecycle"
-epoch = 10
+epoch = 25
 log_step = 1
 # model checkpoint
-ex_name = f"custom_yt_data_normalized_{epoch}_epochs_InputOuput_{5}_{10}_audio_baseline_SimVP_gSTA"
+ex_name = f"custom_yt_data_normalized_{epoch}_epochs_InputOutput_{5}_{5}_withFutureAudio_{5}_SimVP_gSTA_lr8x_v1_baseline"

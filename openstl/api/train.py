@@ -263,7 +263,7 @@ class BaseExperiment(object):
 
     def display_method_info(self):
         """Plot the basic infomation of supported methods"""
-        T, C, H, W, _, _, _ = self.args.in_shape
+        T, C, H, W, _, _, _, _ = self.args.in_shape
         num_ad_frames = int(self.train_loader.dataset.audio_sample_rate * (1 / self.train_loader.dataset.video_frame_rate))
         if self.args.method in ['simvp', 'tau']:
             input_dummy = torch.ones(1, self.args.pre_seq_length, C, H, W).to(self.device)
@@ -332,8 +332,8 @@ class BaseExperiment(object):
             if self._dist and hasattr(self.train_loader.sampler, 'set_epoch'):
                 self.train_loader.sampler.set_epoch(epoch)
 
-            # num_updates, loss_mean, eta = self.method.train_one_epoch(self, self.train_loader,
-            #                                                           epoch, num_updates, eta)
+            num_updates, loss_mean, eta = self.method.train_one_epoch(self, self.train_loader,
+                                                                       epoch, num_updates, eta)
 
             self._epoch = epoch
             if epoch % self.args.log_step == 0:

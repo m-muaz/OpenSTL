@@ -19,12 +19,12 @@ class SimVP_Model(nn.Module):
                  mlp_ratio=8., drop=0.0, drop_path=0.0, spatio_kernel_enc=3,
                  spatio_kernel_dec=3, act_inplace=True, **kwargs):
         super(SimVP_Model, self).__init__()
-        T, C, H, W, _, _, _ = in_shape  # T is pre_seq_length
+        T, C, H, W, _, _, _, _ = in_shape  # T is pre_seq_length
         H, W = int(H / 2**(N_S/2)), int(W / 2**(N_S/2))  # downsample 1 / 2**(N_S/2)
         act_inplace = False
         self.enc = Encoder(C, hid_S, N_S, spatio_kernel_enc, act_inplace=act_inplace)
         # Creating object for audio feature extraction
-        T_, C_, H_, W_, ad_prev_frames, audio_sample_rate, video_frame_rate = in_shape
+        T_, C_, H_, W_, ad_prev_frames, ad_future_frames, audio_sample_rate, video_frame_rate = in_shape
         _, _C, _H, _W, = self.compute_enc_yshape(torch.ones(1, T_, C_, H_, W_))
 
         # The input channel includes 2 audio channels

@@ -28,12 +28,10 @@ class CustomStartSampler(Sampler):
 
     def __len__(self):
         return len(self.indices)
-    
-    
+
+
 class MB(object):
-    def __init__(
-        self, args, data_root, gs_root, audio_root, task, transform=None
-    ):
+    def __init__(self, args, data_root, gs_root, audio_root, task, transform=None):
         self.task = task
         self.transform = transform
         self.chsize = 3
@@ -47,7 +45,7 @@ class MB(object):
         self.dtype = args.dtype
         self.video_frame_rate = args.video_frame_rate
         self.audio_sample_rate = args.audio_sample_rate
-        
+
         # Dictionary to store means and std devs of datasets
         self.mean_dict = {}
         self.std_dict = {}
@@ -55,20 +53,24 @@ class MB(object):
         assert os.path.exists(data_root)
         assert os.path.exists(gs_root)
         assert os.path.exists(audio_root)
-        if self.task == 'train':
+        if self.task == "train":
             self.start_index = 0
 
         # collect, colors, motion vectors, and depth
         self.ref = self.collectFileList(data_root)
         self.ad_ref = self.collectAudioFileList(data_root)
         self.ad_prev_frames = args.ad_prev_frames # previously 3 was hardcoded
+        self.ad_future_frames = args.ad_future_frames # depend on how many audio frames can be obtained in the buffer
 
         self.counts = [(len(el) - self.seq_len) for el in self.ref]
         self.total = np.sum(self.counts)
         self.cum_sum = list(np.cumsum([0] + [el for el in self.counts]))
 
         # make dictionary to store length and dirname
-        self._len_dirname = {(len(el) - self.seq_len): os.path.basename(os.path.dirname(el[0])) for el in self.ref}
+        self._len_dirname = {
+            (len(el) - self.seq_len): os.path.basename(os.path.dirname(el[0]))
+            for el in self.ref
+        }
 
         # print len dir dict
         print(self._len_dirname)
@@ -152,7 +154,7 @@ class MB(object):
 
                 pbar.update(1)
 
-        _placeholder_mean /= (len(dir_list))
+        _placeholder_mean /= len(dir_list)
         return (dirname, _placeholder_mean)
 
     # Function to compute standard deviation of each dir
@@ -172,7 +174,7 @@ class MB(object):
 
                 pbar.update(1)
 
-        _placeholder_std /= (len(dir_list))
+        _placeholder_std /= len(dir_list)
         _placeholder_std = np.sqrt(_placeholder_std)
         return (dirname, _placeholder_std)
 
@@ -238,12 +240,18 @@ class MB(object):
             basename = os.path.basename(os.path.dirname(img_path))
 
             # make basename the key of the dictionary and the value is a tuple of mean and std
-            dataset_statistics[basename] = (self.mean_dict[basename], self.std_dict[basename])
+            dataset_statistics[basename] = (
+                self.mean_dict[basename],
+                self.std_dict[basename],
+            )
 
         # save the dictionary as a numpy file if the file does not exist under the path
         if os.path.exists(path):
-            # save the dictionary as a numpy file with name dataset_statistics.npy
-            filename = os.path.join(path, f"dataset_statistics_{self.task}_{self.crop_size[0]}_by_{self.crop_size[1]}.npy")
+            filename = os.path.join(
+                path,
+                f"dataset_statistics_{self.task}_{self.crop_size[0]}_by_{self.crop_size[1]}.npy",
+            )
+
             print(f"Saving dataset statistics to: {filename}")
             np.save(filename, dataset_statistics)
             print(dataset_statistics)
@@ -253,7 +261,10 @@ class MB(object):
     def load_mean_std(self, path):
         os.makedirs(path, exist_ok=True)
         # Check if the file exists under the path
-        filename = os.path.join(path, f"dataset_statistics_{self.task}_{self.crop_size[0]}_by_{self.crop_size[1]}.npy")
+        filename = os.path.join(
+            path,
+            f"dataset_statistics_{self.task}_{self.crop_size[0]}_by_{self.crop_size[1]}.npy",
+        )
         if os.path.exists(filename):
             # # make self.mean and self.std a list
             # self.mean = {}
@@ -275,7 +286,7 @@ class MB(object):
 
     def __len__(self):
         return int(self.total)
-    
+
     def __getitem__(self, index):
         # adjust index
         index = len(self) + index if index < 0 else index
@@ -288,11 +299,11 @@ class MB(object):
         dataset_len = self.counts[dataset_index - 1]
         # print("Dataset Index: ", dataset_index)
         # print("Dataset Len: ", dataset_len)
-        
+
         # Avoid negative index for selecting audio frames
         if index < self.ad_prev_frames:
             index = self.ad_prev_frames
-        
+
         dirname = self._len_dirname[dataset_len]
         mean = self.mean_dict[dirname] if dirname in self.mean_dict else 0.0
         std_dev = self.std_dict[dirname] if dirname in self.std_dict else 1.0
@@ -309,18 +320,43 @@ class MB(object):
         ]
 
         # list to store indices
-        pre_indices = [index + offset - self.ad_prev_frames for offset in range(self.seq_len)]
-        post_indices = [index + offset + 1 + self.input_length for offset in range(self.seq_len)]
-        # audio data has the previous frame sequence and the current audio frame
-        input_ads = [
-            ad_data[
-                :,
-                (index + offset - self.ad_prev_frames)
-                * num_audio_frames : (index + self.input_length + 1 + offset)
-                * num_audio_frames,
-            ]
-            for offset in range(self.input_length)
+        pre_indices = [
+            index + offset - self.ad_prev_frames for offset in range(self.seq_len)
         ]
+        post_indices = [
+            index + offset + 1 + self.input_length for offset in range(self.seq_len)
+        ]
+        # audio data has the previous frame sequence and the current audio frame
+
+        # Parameter/Variable that corresponds to the length of the audio sequence
+        """
+        Reason for using Input Length + Output Length is because the model does one shot generation
+        so, it is better if we give the model the entire audio sequence to generate the future video frames
+
+        (Default) audioSeqLen = self.input_length + 1 (i.e., all the audio frames corresponding to the past video frames +
+                                                            1 audio frame for the future video frame)
+        """
+        # audioSeqLen = self.input_length + self.output_length
+
+        input_ads = [
+                ad_data[
+                    :,
+                    (index + offset - self.ad_prev_frames)
+                    * num_audio_frames : (index + offset + self.ad_future_frames + 1)
+                    * num_audio_frames,
+                    ]
+                for offset in range(self.input_length)
+            ]
+
+        # input_ads = [
+        #     ad_data[
+        #         :,
+        #         (index + offset - self.ad_prev_frames)
+        #         * num_audio_frames : (index + audioSeqLen + offset)
+        #         * num_audio_frames,
+        #     ]
+        #     for offset in range(self.input_length)
+        # ]
         # print("Printing input images shape")
         # print([im.shape for im in input_ads])
         input_ads_shapes = [im.shape for im in input_ads]
@@ -364,14 +400,35 @@ class MB(object):
             print("Indices for pre and post audio frames: ", pre_indices, post_indices)
             print("Input audio shapes are not the same")
             print(input_ads_shapes)
-            raise ValueError("Input audio shapes are not the same")
+            #raise ValueError("Input audio shapes are not the same")
+            # expected number of audio frames
+            requiredFrames= ( self.ad_future_frames + 1 ) * num_audio_frames
+            # traverse the list input_ads and if the shape is not equal to the expected shape, pad the array or truncate the array
+            for idx, ad in enumerate(input_ads):
+                if ad.shape[1] != requiredFrames:
+                    if ad.shape[1] > requiredFrames:
+                        # truncate the array
+                        input_ads[idx] = ad[:, :requiredFrames]
+                    else:
+                        # pad the array along the second dimension
+                        input_ads[idx] = np.pad(ad, ((0, 0), (0, requiredFrames - ad.shape[1])), "reflect")
+            
+            # print that the input_ads are modified and the issue is fixed
+            print("Input audio shapes are modified to be the same")
 
-        input_images = np.stack([(((im.astype(float) / 255.0) - mean) / (std_dev + np.finfo(float).eps)) for im in images], axis=0)
-        input_audios = np.stack([im.astype(float) for im in input_ads], axis=0)  # (seq_num, 2, num_audio_frames)
+        input_images = np.stack(
+            [
+                (((im.astype(float) / 255.0) - mean) / (std_dev + np.finfo(float).eps))
+                for im in images
+            ],
+            axis=0,
+        )
+        input_audios = np.stack(
+            [im.astype(float) for im in input_ads], axis=0
+        )  # (seq_num, 2, num_audio_frames)
         # print(input_audios.shape)
         # input_images = np.stack([((im.astype(float) / 255.0) - mean) / std_dev for im in images], axis=0)
         # input_images = np.stack([(im.astype(float) / 255.0) for im in images], axis=0)
-
 
         # input_audios = np.stack([im.astype(float) for im in input_ads], axis=0)
 
@@ -387,7 +444,7 @@ class MB(object):
         # input_images_reshaped = normalize_data(self.dtype, input_images_tensor)
         # input_images_tensor = torch.tensor(input_images_reshaped).float()
         # input_images_reshaped = sequence_input(input_images_tensor, self.dtype)
-        
+
         input_audios_tensor = torch.tensor(input_audios, dtype=torch.float)
 
         # return input_images_tensor
@@ -396,5 +453,5 @@ class MB(object):
             input_images_tensor[self.input_length :, :, :, :],
             input_audios_tensor,
             mean,
-            std_dev
+            std_dev,
         )

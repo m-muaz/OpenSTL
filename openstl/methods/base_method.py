@@ -127,9 +127,10 @@ class Base_method(object):
                     pred_y = self._predict(batch_x, batch_ad, batch_y)
                 
                 data_mean, data_std = mean.cpu().numpy(), std.cpu().numpy()
+                dm, ds  = data_mean.shape, data_std.shape
                 if len(data_mean.shape) > 1 and len(data_std.shape) > 1:
-                    data_mean, data_std = np.transpose(data_mean, (0, 3, 1, 2)), np.transpose(data_std, (0, 3, 1, 2))
-                    data_mean, data_std = np.expand_dims(data_mean, axis=0), np.expand_dims(data_std, axis=0)
+                    data_mean, data_std = data_mean.reshape(dm[0], 1, dm[1], dm[2], dm[3]), data_std.reshape(ds[0], 1, ds[1], ds[2], ds[3])
+                    data_mean, data_std = np.transpose(data_mean, (0, 1, 4, 2, 3)), np.transpose(data_std, (0,1, 4, 2, 3))
                     # data_mean = np.squeeze(mean.cpu().numpy()) 
                     # data_std = np.squeeze(std.cpu().numpy())
 
