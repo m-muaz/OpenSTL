@@ -58,28 +58,32 @@ class SimVP_Model(nn.Module):
                 mlp_ratio=mlp_ratio, drop=drop, drop_path=drop_path)
 
     def forward(self, x_raw, ad_raw, **kwargs):
-        B, T, C, H, W = x_raw.shape
-        x = x_raw.view(B*T, C, H, W)
+        B, T_x, C, H, W = x_raw.shape
+        x = x_raw.view(B*T_x, C, H, W)
         
-        B, T, AC, AF = ad_raw.shape
+        B, T_a, AC, AF = ad_raw.shape
 
         embed, skip = self.enc(x)
         _, C_, H_, W_ = embed.shape
 
-        z = embed.view(B, T, C_, H_, W_)
+        z = embed.view(B, T_x, C_, H_, W_)
         
-        ad_inp = ad_raw.view(B * T * AC, AF)
+        ad_inp = ad_raw.view(B * T_a * AC, AF)
         ad_feats, _ = self.ad_feat_extractor.extract_features(ad_inp)
-        # Only use the last audio feature
-        ad_feat = self.ad_net(ad_feats[-1].view(B * T * AC, -1))
-        ad_feat = ad_feat.view(B, T , AC, H_, W_)
+
+        # Use all the transformer layer features (i.e., 12 features)
+        num_feats = len(ad_feats)
+        ad_feats = torch.stack(ad_feats, dim=1)
+                
+        ad_feat = self.ad_net(ad_feats.view(B, num_feats, T_a * AC, -1))
+        ad_feat = ad_feat.view(B, T_a , AC, H_, W_)
         # ad_feat = self.fc(ad_feats[-1].view(B * T * AC, -1)).view(B, T, AC, H_, W_)
         
         hid = self.hid(torch.cat((z, ad_feat), 2))
-        hid = hid.reshape(B*T, C_ + AC, H_, W_)
+        hid = hid.reshape(B*T_x, C_ + AC, H_, W_)
 
         Y = self.dec(hid, skip)
-        Y = Y.reshape(B, T, C, H, W)
+        Y = Y.reshape(B, T_x, C, H, W)
 
         return Y
     
@@ -98,13 +102,19 @@ class SimVP_Model(nn.Module):
         B, T, AC, AF = x.shape
         x = x.view(B*T*AC, AF)
         x,_ = self.ad_feat_extractor.extract_features(x)
-        _, F1, F2 = x[-1].shape # F1 and F2 are the feature dimensions
+        x = torch.stack(x, dim=1)
+        _, num_feats, F1, F2 = x.shape # F1 and F2 are the feature dimensions
         return F1*F2
 
 def sampling_generator(N, reverse=False):
     samplings = [False, True] * (N // 2)
     if reverse: return list(reversed(samplings[:N]))
     else: return samplings[:N]
+
+# A single MLP network to transform a single transform layer output to a specific dimension output
+class ProjectionMLP(nn.Module):
+    '''MLP network to transform the audio feature to the desired dimension (let say 2048)'''
+    def __init__
 
 class AudioMLP(nn.Module):
     """MLP network to synchronize audio with video features"""
@@ -115,6 +125,11 @@ class AudioMLP(nn.Module):
         self.W = W
         self.T = T
         self.AC = audio_channels
+        # the input tensor passed to this network is of shape (B, num_transformer_layer, F1, F2)
+        # so we need to have num_transformer_layer MLP to transform the corresponding audio feature and then 
+        # in the end we will do a weighted sum of all those MLP output and generate the final output of shape self.H * self.W
+
+        # generate 
         self.audio_feature = nn.Sequential(
             nn.Linear(audio_feature, self.H * self.W),
             # self.activation,
