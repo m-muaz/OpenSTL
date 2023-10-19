@@ -43,8 +43,8 @@ class SimVP_Model(nn.Module):
         # Compute input feature shape for AudioMLP
         if audio_sample_rate is not None and video_frame_rate is not None:
             audio_frame = int(audio_sample_rate * (1/video_frame_rate))
-            out = self.compute_audio_shape(torch.ones(1, T, 2, audio_frame * (ad_prev_frames + ad_future_frames + 1)))
-            self.ad_net = AudioMLP(out, T, _H, _W)
+            transformer_layers, out = self.compute_audio_shape(torch.ones(1, T, 2, audio_frame * (ad_prev_frames + ad_future_frames + 1)))
+            self.ad_net = AudioMLP(out, T, _H, _W, transformerLayers=transformer_layers)
         else:
             self.ad_net = AudioMLP(768*9, T, _H, _W)
         # self.fc = nn.Linear(768 * 9, 64 * 64)
@@ -104,42 +104,108 @@ class SimVP_Model(nn.Module):
         x,_ = self.ad_feat_extractor.extract_features(x)
         x = torch.stack(x, dim=1)
         _, num_feats, F1, F2 = x.shape # F1 and F2 are the feature dimensions
-        return F1*F2
+        return num_feats, F1*F2
 
 def sampling_generator(N, reverse=False):
     samplings = [False, True] * (N // 2)
     if reverse: return list(reversed(samplings[:N]))
     else: return samplings[:N]
 
-# A single MLP network to transform a single transform layer output to a specific dimension output
-class ProjectionMLP(nn.Module):
-    '''MLP network to transform the audio feature to the desired dimension (let say 2048)'''
-    def __init__
 
 class AudioMLP(nn.Module):
     """MLP network to synchronize audio with video features"""
-    def __init__(self, audio_feature, T, H, W, audio_channels=2, activation=nn.ReLU):
+    def __init__(self, audio_feature, T, H, W, transformerLayers, audio_channels=2, activation=nn.ReLU):
         super(AudioMLP, self).__init__()
+        self.audio_feature = audio_feature
         self.activation = activation()
         self.H = H
         self.W = W
         self.T = T
+        self.transformerLayer = transformerLayers
         self.AC = audio_channels
         # the input tensor passed to this network is of shape (B, num_transformer_layer, F1, F2)
         # so we need to have num_transformer_layer MLP to transform the corresponding audio feature and then 
         # in the end we will do a weighted sum of all those MLP output and generate the final output of shape self.H * self.W
 
-        # generate 
-        self.audio_feature = nn.Sequential(
-            nn.Linear(audio_feature, self.H * self.W),
-            # self.activation,
-            # nn.Linear(256, 1024),
-            # nn.Linear(64, self.H * self.W),
-            self.activation,
-        )
+        # OLD CODE
+        # self.audio_feature = nn.Sequential(
+        #     nn.Linear(self.audio_feature, self.H * self.W),
+        #     # self.activation,
+        #     # nn.Linear(256, 1024),
+        #     # nn.Linear(64, self.H * self.W),
+        #     self.activation,
+        # )
+
+        # generate a module list to store all the MLPs
+        self.mlp_list = nn.ModuleList()
+        for l in range(self.transformerLayer):
+            # generate the MLP for each transformer layer and add it to the module list
+            self.mlp_list.append(self.mlp_net())
+
+        # generate a layer that will weight the output of all the MLPs and then sum them up
+        self.combineMlp = nn.Parameter(torch.ones(self.transformerLayer) / self.transformerLayer, requires_grad=True)
+
+        # linear layer to transform the 2048 dimension to H*W dimension
+        self.output = nn.Linear(2048, self.H * self.W)
+
+        # activation
+        self.act = nn.ReLU()
+        
+        # have a batch normalization layer to normalize the output after the weighted sum
+        self.bn = nn.BatchNorm1d(2048)
+
     def forward(self, x):
-        y = self.audio_feature(x)
-        return y
+
+        # the input tensor will be of shape (B, num_transformer_layer, F1, F2)
+        # pass each of the tensor along the num_transformer_layer dimension to the corresponding MLP
+        # and then store the output in a list
+
+        mlp_output = []
+        for l in range(self.transformerLayer):
+            mlp_output.append(self.mlp_list[l](x[:, l, :, :].view(-1, self.audio_feature)))
+        
+        # now we have a list of output of all the MLPs
+        # we need to weight them and then sum them up
+        # we will use the combineMlp layer to weight the output of all the MLPs
+        # and then sum them up
+        # we will use the bn layer to normalize the output after the weighted sum
+
+        # convert the list to a tensor
+        mlp_output = torch.stack(mlp_output, dim=1)
+
+        # weight the output of all the MLPs
+        mlp_output = mlp_output * self.combineMlp.view(1, -1, 1)
+
+        # sum them up
+        mlp_output = torch.sum(mlp_output, dim=1)
+
+        # normalize the output
+        mlp_output = self.bn(mlp_output)
+
+        # pass through the linear layer to transform the 2048 dimension to H*W dimension
+        mlp_output = self.output(mlp_output)
+
+        # pass through the activation
+        mlp_output = self.act(mlp_output)
+
+        return mlp_output
+        # y = self.audio_feature(x)
+        # return y
+
+    def mlp_net(self):
+        '''
+        A module that generates a mlp for processing of a single transformer layer feature
+        '''
+        return nn.Sequential(
+            nn.Linear(self.audio_feature, 4096),
+            nn.Relu(),
+            nn.Linear(4096, 2048),
+            nn.Relu(),
+            nn.Linear(2048, 2048),
+            nn.Relu(),
+            nn.Linear(2048, 2048),
+            nn.Relu(),
+        )
 
 
 class Encoder(nn.Module):
