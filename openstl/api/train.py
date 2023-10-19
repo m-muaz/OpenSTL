@@ -355,7 +355,7 @@ class BaseExperiment(object):
         time.sleep(1)  # wait for some hooks like loggers to finish
         self.call_hook('after_run')
 
-    def vali(self, epoch=None):
+    def vali(self, epoch=0):
         """A validation loop during training"""
         valMetrics = ['mse', 'mae', 'psnr', 'ssim', 'lpips']
         # check if self.args namespace contains the attribute save_inference
