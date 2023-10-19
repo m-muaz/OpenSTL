@@ -34,11 +34,11 @@ class SimVP_Model(nn.Module):
         T_, C_, H_, W_, ad_prev_frames, ad_future_frames, audio_sample_rate, video_frame_rate = in_shape
         _, _C, _H, _W, = self.compute_enc_yshape(torch.ones(1, T_, C_, H_, W_))
 
-        # self.ad_feat_extractor = torchaudio.pipelines.WAV2VEC2_BASE.get_model()
-        self.ad_feat_extractor = torchaudio.pipelines.WAVLM_BASE.get_model()
+        self.ad_feat_extractor = torchaudio.pipelines.WAV2VEC2_BASE.get_model()
+        # self.ad_feat_extractor = torchaudio.pipelines.WAVLM_BASE.get_model()
         # Ensuring that the ad_feature_extractor remains in eval mode
         for param in self.ad_feat_extractor.parameters():
-            param.requires_grad = True
+            param.requires_grad = False
 
         # Compute input feature shape for AudioMLP
         if audio_sample_rate is not None and video_frame_rate is not None:
